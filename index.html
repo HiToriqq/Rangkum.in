@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <script>
+    (function () {
+      var d = document.documentElement;
+      try {
+        var t = localStorage.getItem('theme');
+        d.dataset.theme = (t === 'light' || t === 'dark') ? t : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      } catch (e) { d.dataset.theme = 'light'; }
+    })();
+  </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rangkum.in — Ringkas artikel, dokumen, dan video</title>
+  <meta name="description" content="Rangkum.in meringkas teks, artikel web, dokumen, dan video/audio menjadi poin-poin yang mudah dibaca." />
+  <meta name="theme-color" content="#faf9f6" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#14151a" media="(prefers-color-scheme: dark)" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23c2410c'/%3E%3Cpath d='M8 10h16M8 16h16M8 22h9' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>
