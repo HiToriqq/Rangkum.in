@@ -1,0 +1,45 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-navy: #172A43;
+    --color-terracotta: #B9684B;
+    --color-bg: #F7F6F2;
+    --color-surface: #FFFFFF;
+    --color-border: #E7E3DA;
+    --color-text: #202B38;
+    --color-muted: #7D858C;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+  }
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D3CDC0;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A0A7AF;
+}
+
+/* Focus outline styling */
+:focus-visible {
+  outline: 2px solid #B9684B;
+  outline-offset: 2px;
+}

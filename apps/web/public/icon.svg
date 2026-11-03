@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Rounded container with subtle elevation -->
+  <rect width="64" height="64" rx="14" fill="#172A43"/>
+  <rect x="1" y="1" width="62" height="62" rx="13" stroke="#2A4365" stroke-opacity="0.4" stroke-width="2"/>
+  
+  <!-- Stylized Document Shape -->
+  <path d="M16 11C16 9.34315 17.3431 8 19 8H37L48 19V53C48 54.6569 46.6569 56 45 56H19C17.3431 56 16 54.6569 16 53V11Z" fill="#1D3350"/>
+  <!-- Fold corner in Terracotta -->
+  <path d="M37 8V18C37 18.5523 37.4477 19 38 19H48L37 8Z" fill="#B9684B"/>
+  
+  <!-- Subtle document guideline at the top -->
+  <line x1="22" y1="16" x2="31" y2="16" stroke="#4A6585" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Voice Waveform into Meeting Minutes Lines -->
+  <!-- Wave bar 1 -->
+  <rect x="22" y="34" width="3" height="12" rx="1.5" fill="#E7E3DA" fill-opacity="0.85"/>
+  <!-- Wave bar 2 -->
+  <rect x="28" y="27" width="3" height="23" rx="1.5" fill="#FFFFFF"/>
+  <!-- Wave bar 3 (Focal Terracotta bar) -->
+  <rect x="34" y="22" width="3.5" height="30" rx="1.75" fill="#B9684B"/>
+  <!-- Wave bar 4 -->
+  <rect x="40" y="29" width="3" height="19" rx="1.5" fill="#FFFFFF"/>
+</svg>

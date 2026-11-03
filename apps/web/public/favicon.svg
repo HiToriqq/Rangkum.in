@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="7" fill="#172A43"/>
+  <!-- Document base with folded corner -->
+  <path d="M7 6C7 4.89543 7.89543 4 9 4H18L25 11V26C25 27.1046 24.1046 28 23 28H9C7.89543 28 7 27.1046 7 26V6Z" fill="#1E3554"/>
+  <path d="M18 4V10C18 10.5523 18.4477 11 19 11H25L18 4Z" fill="#B9684B"/>
+  
+  <!-- Soundwaves emerging as structured note lines -->
+  <line x1="11" y1="18" x2="11" y2="22" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round"/>
+  <line x1="14" y1="15" x2="14" y2="25" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round"/>
+  <line x1="17" y1="13" x2="17" y2="26" stroke="#B9684B" stroke-width="2" stroke-linecap="round"/>
+  <line x1="20" y1="16" x2="20" y2="24" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round"/>
+</svg>
