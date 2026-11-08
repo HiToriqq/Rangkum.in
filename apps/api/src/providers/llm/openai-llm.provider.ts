@@ -4,6 +4,7 @@ import { MinutesSchema } from '../../types/index.js';
 
 export class OpenAiLlmProvider implements LlmProvider {
   name = 'OpenAI LLM';
+  isMock = false;
   private apiKey: string;
   private model: string;
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Pause, Play, Square, Trash2, AlertCircle } from 'lucide-react';
+import { Mic, Pause, Play, Square, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import { useSessionStore } from '../../store/useSessionStore';
 import { formatDuration } from '../../lib/format';
 import { getSupportedMimeType, MAX_RECORD_DURATION_SEC } from '../../lib/audio-utils';
@@ -10,6 +10,7 @@ export const RecordTab: React.FC = () => {
     recordingStatus,
     recordingDuration,
     audioUrl,
+    sourceType,
     setAudioFromRecord,
     setRecordingStatus,
     setRecordingDuration,
@@ -19,15 +20,23 @@ export const RecordTab: React.FC = () => {
   } = useSessionStore();
 
   const [micError, setMicError] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
+  const isMountedRef = useRef(false);
+  const isStartingRef = useRef(false);
 
-  // Clear timer on unmount
+  const hasRecording = sourceType === 'record' && Boolean(audioUrl);
+
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== 'inactive') recorder.stop();
       stopMediaTracks();
     };
   }, []);
@@ -60,13 +69,22 @@ export const RecordTab: React.FC = () => {
   };
 
   const startRecording = async () => {
+    if (isStartingRef.current) return;
     setMicError(null);
     audioChunksRef.current = [];
+
+    if (typeof MediaRecorder === 'undefined') {
+      setMicError('Browser Anda tidak mendukung perekaman audio. Coba gunakan browser versi terbaru.');
+      return;
+    }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setMicError('Browser Anda tidak mendukung perekaman mikrofon langsung.');
       return;
     }
+
+    isStartingRef.current = true;
+    setIsStarting(true);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -76,6 +94,11 @@ export const RecordTab: React.FC = () => {
           autoGainControl: true,
         },
       });
+
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
 
       streamRef.current = stream;
       const mimeType = getSupportedMimeType();
@@ -101,6 +124,13 @@ export const RecordTab: React.FC = () => {
           type: recorder.mimeType || mimeType || 'audio/webm',
         });
         const duration = useSessionStore.getState().recordingDuration;
+        if (finalBlob.size === 0) {
+          setRecordingStatus('idle');
+          setRecordingDuration(0);
+          setMicError('Tidak ada audio yang terekam. Periksa mikrofon lalu coba lagi.');
+          stopMediaTracks();
+          return;
+        }
         setAudioFromRecord(finalBlob, duration);
         stopMediaTracks();
       };
@@ -112,7 +142,8 @@ export const RecordTab: React.FC = () => {
       showToast('Perekaman dimulai.', 'info');
     } catch (err: unknown) {
       stopMediaTracks();
-      const error = err as Error;
+      if (!isMountedRef.current) return;
+      const error = err instanceof Error ? err : new Error('Kesalahan perangkat');
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
         setMicError('Izin akses mikrofon ditolak. Berikan izin mikrofon pada browser Anda untuk merekam.');
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
@@ -120,6 +151,9 @@ export const RecordTab: React.FC = () => {
       } else {
         setMicError(`Gagal mengakses mikrofon: ${error.message || 'Kesalahan perangkat'}`);
       }
+    } finally {
+      isStartingRef.current = false;
+      if (isMountedRef.current) setIsStarting(false);
     }
   };
 
@@ -142,7 +176,7 @@ export const RecordTab: React.FC = () => {
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && (recordingStatus === 'recording' || recordingStatus === 'paused')) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       pauseTimer();
       mediaRecorderRef.current.stop();
       setRecordingStatus('stopped');
@@ -175,7 +209,7 @@ export const RecordTab: React.FC = () => {
         <div className="flex items-start gap-2.5 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm">
           <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
           <div className="flex-1">
-            <p className="font-semibold">Izin Mikrofon Diperlukan</p>
+            <p className="font-semibold">Perekaman Tidak Dapat Dilanjutkan</p>
             <p className="mt-0.5">{micError}</p>
           </div>
         </div>
@@ -198,7 +232,7 @@ export const RecordTab: React.FC = () => {
                 ? 'bg-terracotta-600 text-white shadow-elevated scale-105'
                 : recordingStatus === 'paused'
                 ? 'bg-amber-500 text-white shadow-card'
-                : recordingStatus === 'stopped' && audioUrl
+                : recordingStatus === 'stopped' && hasRecording
                 ? 'bg-navy-800 text-white'
                 : 'bg-bg-surface border-2 border-border text-txt-muted'
             }`}
@@ -222,7 +256,7 @@ export const RecordTab: React.FC = () => {
             {recordingStatus === 'paused' && (
               <span className="text-amber-600 font-semibold">Perekaman dijeda</span>
             )}
-            {recordingStatus === 'stopped' && audioUrl && (
+            {recordingStatus === 'stopped' && hasRecording && (
               <span className="text-emerald-700 font-semibold">Rekaman selesai & siap diproses</span>
             )}
             {recordingStatus === 'idle' && 'Siap merekam. Tekan Mulai untuk memulai.'}
@@ -235,10 +269,11 @@ export const RecordTab: React.FC = () => {
             <button
               type="button"
               onClick={startRecording}
+              disabled={isStarting}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-navy-800 hover:bg-navy-700 text-white text-sm font-semibold transition-all shadow-sm active:scale-95"
             >
-              <Mic className="w-4 h-4 text-terracotta-400" />
-              <span>Mulai Rekam</span>
+              {isStarting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4 text-terracotta-400" />}
+              <span>{isStarting ? 'Mengakses Mikrofon...' : 'Mulai Rekam'}</span>
             </button>
           )}
 
@@ -284,7 +319,7 @@ export const RecordTab: React.FC = () => {
             </>
           )}
 
-          {recordingStatus === 'stopped' && audioUrl && (
+          {recordingStatus === 'stopped' && hasRecording && (
             <button
               type="button"
               onClick={handleDiscard}
@@ -298,9 +333,9 @@ export const RecordTab: React.FC = () => {
       </div>
 
       {/* Audio Preview Player if recorded */}
-      {recordingStatus === 'stopped' && audioUrl && (
+      {recordingStatus === 'stopped' && hasRecording && (
         <div className="mt-1">
-          <AudioPlayer src={audioUrl} title="Hasil Rekaman Suara" />
+          <AudioPlayer src={audioUrl || ''} title="Hasil Rekaman Suara" />
         </div>
       )}
     </div>

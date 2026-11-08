@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useSessionStore } from '../../store/useSessionStore';
 import type { MinutesActionItem } from '../../types';
+import { exportMinutesPdf, generateMinutes } from '../../lib/api';
+import { downloadBlobFile, downloadTextFile, formatMinutesAsText, sanitizeFileName } from '../../lib/format';
 
 export const MinutesTab: React.FC = () => {
   const {
@@ -31,6 +33,7 @@ export const MinutesTab: React.FC = () => {
     setMinutesLang,
     isGeneratingMinutes,
     setIsGeneratingMinutes,
+    minutesError,
     setMinutesError,
     showToast,
   } = useSessionStore();
@@ -38,13 +41,15 @@ export const MinutesTab: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-  const hasTranslation = Boolean(translations[minutesLang] || translations.id || translations.en);
+  const hasTranslation = Boolean(translations[minutesLang]);
 
   const handleGenerateMinutes = async () => {
-    const textSource =
-      minutesSource === 'translation'
-        ? translations[minutesLang] || Object.values(translations)[0] || editedTranscript
-        : editedTranscript;
+    const textSource = minutesSource === 'translation' ? translations[minutesLang] : editedTranscript;
+
+    if (!textSource) {
+      setMinutesError(`Terjemahan ${minutesLang === 'id' ? 'Bahasa Indonesia' : 'English'} belum tersedia. Buat terjemahan tersebut terlebih dahulu.`);
+      return;
+    }
 
     if (!textSource.trim()) {
       showToast('Belum ada teks transkrip untuk membuat notulen.', 'warning');
@@ -55,28 +60,25 @@ export const MinutesTab: React.FC = () => {
     setMinutesError(null);
 
     try {
-      const response = await fetch('/api/minutes/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript: textSource,
-          language: minutesLang,
-        }),
-      }).catch(() => null);
-
-      if (!response || !response.ok) {
-        setMinutesError(
-          'Layanan pembuatan notulen backend belum terhubung (POST /api/minutes/generate). Fitur LLM akan dikerjakan pada tahap backend berikutnya.'
-        );
-        showToast('Backend LLM notulen belum terhubung.', 'info');
-      } else {
-        const data = await response.json();
-        setMinutesData(data.minutes);
-        showToast('Notulen rapat berhasil digenerate!', 'success');
+      const result = await generateMinutes(textSource, minutesLang);
+      if (result.isMock) {
+        throw new Error('Backend mengembalikan hasil simulasi. Notulen tersebut tidak ditampilkan agar tidak dianggap berasal dari transkrip.');
       }
+
+      const current = useSessionStore.getState();
+      const currentSource = current.minutesSource === 'translation'
+        ? current.translations[current.minutesLang]
+        : current.editedTranscript;
+      if (currentSource !== textSource || current.minutesLang !== minutesLang || current.minutesSource !== minutesSource) {
+        showToast('Sumber transkrip berubah saat notulen dibuat. Silakan coba lagi.', 'info');
+        return;
+      }
+
+      setMinutesData(result.minutes);
+      showToast('Notulen rapat berhasil digenerate!', 'success');
     } catch (err: unknown) {
-      const error = err as Error;
-      setMinutesError(error.message || 'Gagal menghasilkan notulen');
+      const message = err instanceof Error ? err.message : 'Gagal menghasilkan notulen.';
+      setMinutesError(message);
       showToast('Gagal menghasilkan notulen.', 'error');
     } finally {
       setIsGeneratingMinutes(false);
@@ -86,31 +88,8 @@ export const MinutesTab: React.FC = () => {
   const handleCopyMinutes = async () => {
     if (!minutesData) return;
 
-    const formatted = `
-NOTULEN RAPAT: ${minutesData.title}
-Tanggal: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}
-
-RINGKASAN EKSEKUTIF:
-${minutesData.summary}
-
-POIN PEMBAHASAN:
-${minutesData.discussionPoints.map((p, i) => `${i + 1}. ${p}`).join('\n')}
-
-KEPUTUSAN:
-${minutesData.decisions.map((d, i) => `• ${d}`).join('\n')}
-
-ACTION ITEMS / TINDAK LANJUT:
-${minutesData.actionItems.map((a, i) => `${i + 1}. [${a.task}] — PIC: ${a.owner} | Tenggat: ${a.dueDate}`).join('\n')}
-
-ISU TERBUKA:
-${minutesData.openIssues.length > 0 ? minutesData.openIssues.map((o) => `- ${o}`).join('\n') : '- Tidak ada'}
-
-CATATAN:
-${minutesData.notes.length > 0 ? minutesData.notes.map((n) => `- ${n}`).join('\n') : '-'}
-    `.trim();
-
     try {
-      await navigator.clipboard.writeText(formatted);
+      await navigator.clipboard.writeText(formatMinutesAsText(minutesData, minutesLang));
       setCopied(true);
       showToast('Notulen berhasil disalin ke clipboard.', 'success');
       setTimeout(() => setCopied(false), 2000);
@@ -124,34 +103,24 @@ ${minutesData.notes.length > 0 ? minutesData.notes.map((n) => `- ${n}`).join('\n
     setIsExportingPdf(true);
 
     try {
-      const response = await fetch('/api/export/pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          minutes: minutesData,
-          language: minutesLang,
-        }),
-      }).catch(() => null);
-
-      if (!response || !response.ok) {
-        showToast('Layanan ekspor PDF backend belum terhubung. Akan aktif pada tahap export backend.', 'info');
-      } else {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `notulen-${new Date().toISOString().slice(0, 10)}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast('Notulen PDF berhasil diunduh.', 'success');
-      }
-    } catch {
-      showToast('Gagal mengunduh PDF notulen.', 'error');
+      const blob = await exportMinutesPdf(minutesData, minutesLang);
+      const date = new Date().toISOString().slice(0, 10);
+      const title = sanitizeFileName(minutesData.title).slice(0, 30) || 'rapat';
+      downloadBlobFile(`notulen-${date}-${title}.pdf`, blob);
+      showToast('Notulen PDF berhasil diunduh.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Gagal mengunduh PDF notulen.', 'error');
     } finally {
       setIsExportingPdf(false);
     }
+  };
+
+  const handleExportTxt = () => {
+    if (!minutesData) return;
+    const date = new Date().toISOString().slice(0, 10);
+    const title = sanitizeFileName(minutesData.title).slice(0, 30) || 'rapat';
+    downloadTextFile(`notulen-${date}-${title}.txt`, formatMinutesAsText(minutesData, minutesLang));
+    showToast('Notulen TXT berhasil diunduh.', 'success');
   };
 
   // Mutator helpers for editable minutes
@@ -283,7 +252,7 @@ ${minutesData.notes.length > 0 ? minutesData.notes.map((n) => `- ${n}`).join('\n
         </div>
 
         {/* Generate / Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {minutesData && (
             <>
               <button
@@ -294,6 +263,16 @@ ${minutesData.notes.length > 0 ? minutesData.notes.map((n) => `- ${n}`).join('\n
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? 'Tersalin' : 'Salin'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportTxt}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-navy-800 hover:bg-bg-subtle border border-border transition-colors"
+                title="Unduh notulen sebagai TXT"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>TXT</span>
               </button>
 
               <button
@@ -313,7 +292,7 @@ ${minutesData.notes.length > 0 ? minutesData.notes.map((n) => `- ${n}`).join('\n
             type="button"
             onClick={handleGenerateMinutes}
             disabled={isGeneratingMinutes}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-terracotta-600 hover:bg-terracotta-700 transition-colors shadow-sm active:scale-95 disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-terracotta-600 hover:bg-terracotta-700 transition-colors shadow-sm active:scale-95 disabled:opacity-60 whitespace-nowrap"
           >
             {isGeneratingMinutes ? (
               <>
@@ -331,8 +310,14 @@ ${minutesData.notes.length > 0 ? minutesData.notes.map((n) => `- ${n}`).join('\n
       </div>
 
       {/* Main Minutes Content */}
+      {minutesError && (
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>{minutesError}</p>
+        </div>
+      )}
       {minutesData ? (
-        <div className="flex flex-col gap-4 bg-bg-surface p-4 sm:p-6 rounded-2xl border border-border shadow-card">
+        <div className="flex flex-col gap-4 bg-transparent sm:bg-bg-surface p-0 sm:p-6 rounded-none sm:rounded-2xl border-0 sm:border sm:border-border shadow-none sm:shadow-card">
           {/* Ambiguity / Needs Verification Alert */}
           {minutesData.needsVerification && (
             <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
@@ -374,7 +359,7 @@ ${minutesData.notes.length > 0 ? minutesData.notes.map((n) => `- ${n}`).join('\n
 
           {/* Discussion Points */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between mb-1.5">
               <label className="text-[11px] font-bold text-txt-muted uppercase tracking-wider">
                 Poin Pembahasan ({minutesData.discussionPoints.length})
               </label>
@@ -410,7 +395,7 @@ ${minutesData.notes.length > 0 ? minutesData.notes.map((n) => `- ${n}`).join('\n
 
           {/* Decisions */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between mb-1.5">
               <label className="text-[11px] font-bold text-txt-muted uppercase tracking-wider">
                 Keputusan yang Disepakati ({minutesData.decisions.length})
               </label>
@@ -446,7 +431,7 @@ ${minutesData.notes.length > 0 ? minutesData.notes.map((n) => `- ${n}`).join('\n
 
           {/* Action Items */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between mb-1.5">
               <label className="text-[11px] font-bold text-txt-muted uppercase tracking-wider">
                 Action Items / Tindak Lanjut ({minutesData.actionItems.length})
               </label>
@@ -462,34 +447,34 @@ ${minutesData.notes.length > 0 ? minutesData.notes.map((n) => `- ${n}`).join('\n
               {minutesData.actionItems.map((item, idx) => (
                 <div
                   key={idx}
-                  className="p-3 bg-bg-base/40 rounded-xl border border-border flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
+                  className="p-2.5 sm:p-3 bg-bg-base/40 rounded-xl border border-border flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
                 >
                   <input
                     type="text"
                     value={item.task}
                     placeholder="Tugas"
                     onChange={(e) => updateActionItem(idx, 'task', e.target.value)}
-                    className="flex-1 text-xs sm:text-sm font-medium text-navy-900 bg-bg-surface px-2.5 py-1.5 rounded-lg border border-border focus:border-terracotta-500 focus:outline-none"
+                    className="w-full min-w-0 flex-1 text-xs sm:text-sm font-medium text-navy-900 bg-bg-surface px-2.5 py-1.5 rounded-lg border border-border focus:border-terracotta-500 focus:outline-none"
                   />
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex items-center gap-1 bg-bg-surface px-2 py-1 rounded-lg border border-border text-xs text-txt-muted">
+                  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                    <div className="flex min-w-[100px] flex-1 items-center gap-1 bg-bg-surface px-2 py-1 rounded-lg border border-border text-xs text-txt-muted">
                       <User className="w-3.5 h-3.5 text-navy-600" />
                       <input
                         type="text"
                         value={item.owner}
                         placeholder="PIC"
                         onChange={(e) => updateActionItem(idx, 'owner', e.target.value)}
-                        className="w-24 bg-transparent text-navy-800 font-semibold focus:outline-none"
+                        className="w-full min-w-0 bg-transparent text-navy-800 font-semibold focus:outline-none sm:w-24"
                       />
                     </div>
-                    <div className="flex items-center gap-1 bg-bg-surface px-2 py-1 rounded-lg border border-border text-xs text-txt-muted">
+                    <div className="flex min-w-[100px] flex-1 items-center gap-1 bg-bg-surface px-2 py-1 rounded-lg border border-border text-xs text-txt-muted">
                       <Calendar className="w-3.5 h-3.5 text-terracotta-600" />
                       <input
                         type="text"
                         value={item.dueDate}
                         placeholder="Tenggat"
                         onChange={(e) => updateActionItem(idx, 'dueDate', e.target.value)}
-                        className="w-24 bg-transparent text-navy-800 font-semibold focus:outline-none"
+                        className="w-full min-w-0 bg-transparent text-navy-800 font-semibold focus:outline-none sm:w-24"
                       />
                     </div>
                     <button

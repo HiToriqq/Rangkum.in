@@ -13,6 +13,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useSessionStore } from '../../store/useSessionStore';
+import { askQuestion } from '../../lib/api';
 
 export const QaTab: React.FC = () => {
   const {
@@ -22,6 +23,7 @@ export const QaTab: React.FC = () => {
     clearQaMessages,
     isAsking,
     setIsAsking,
+    qaError,
     setQaError,
     showToast,
     showConfirmModal,
@@ -30,6 +32,7 @@ export const QaTab: React.FC = () => {
   const [question, setQuestion] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const requestIdRef = useRef(0);
 
   const quickQuestions = [
     'Apa saja keputusan utama yang disepakati?',
@@ -48,14 +51,16 @@ export const QaTab: React.FC = () => {
 
   const handleSendQuestion = async (textToSend?: string) => {
     const q = (textToSend || question).trim();
-    if (!q) return;
+    if (!q || isAsking) return;
 
-    if (!editedTranscript.trim()) {
+    const transcript = editedTranscript;
+    if (!transcript.trim()) {
       showToast('Transkrip belum tersedia. Selesaikan transkripsi terlebih dahulu.', 'warning');
       return;
     }
 
-    // Add user message
+    const requestId = ++requestIdRef.current;
+    const history = qaMessages.map(({ role, content }) => ({ role, content }));
     addQaMessage({
       role: 'user',
       content: q,
@@ -65,37 +70,24 @@ export const QaTab: React.FC = () => {
     setQaError(null);
 
     try {
-      const response = await fetch('/api/qa/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: q,
-          transcript: editedTranscript,
-          history: qaMessages.map((m) => ({ role: m.role, content: m.content })),
-        }),
-      }).catch(() => null);
-
-      if (!response || !response.ok) {
-        addQaMessage({
-          role: 'assistant',
-          content:
-            'Layanan tanya-jawab AI backend belum terhubung (POST /api/qa/ask). Pada tahap backend berikutnya, asisten AI akan menjawab pertanyaan secara ketat berdasarkan isi rekaman dan transkrip.',
-        });
-        showToast('Backend QA belum terhubung.', 'info');
-      } else {
-        const data = await response.json();
-        addQaMessage({
-          role: 'assistant',
-          content: data.answer,
-          references: data.references,
-        });
+      const data = await askQuestion(q, transcript, history);
+      const current = useSessionStore.getState();
+      if (requestId !== requestIdRef.current || current.editedTranscript !== transcript) return;
+      if (data.isMock) {
+        throw new Error('Backend mengembalikan jawaban simulasi. Jawaban tersebut tidak ditampilkan sebagai hasil dari transkrip.');
       }
+
+      addQaMessage({
+        role: 'assistant',
+        content: data.answer,
+        references: data.references,
+      });
     } catch (err: unknown) {
-      const error = err as Error;
-      setQaError(error.message || 'Gagal mengirim pertanyaan');
+      if (requestId !== requestIdRef.current || useSessionStore.getState().editedTranscript !== transcript) return;
+      setQaError(err instanceof Error ? err.message : 'Gagal mengirim pertanyaan.');
       showToast('Gagal memproses pertanyaan.', 'error');
     } finally {
-      setIsAsking(false);
+      if (requestId === requestIdRef.current) setIsAsking(false);
     }
   };
 
@@ -107,6 +99,7 @@ export const QaTab: React.FC = () => {
       cancelLabel: 'Batal',
       isDestructive: true,
       onConfirm: () => {
+        requestIdRef.current += 1;
         clearQaMessages();
         showToast('Riwayat percakapan dibersihkan.', 'info');
       },
@@ -141,7 +134,7 @@ export const QaTab: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-[520px] bg-bg-surface rounded-2xl border border-border shadow-card overflow-hidden">
+    <div className="flex flex-col h-[min(65vh,520px)] min-h-[360px] sm:h-[520px] bg-bg-surface sm:rounded-2xl border-0 sm:border sm:border-border shadow-none sm:shadow-card overflow-hidden">
       {/* Top Header of Chat */}
       <div className="px-4 py-3 border-b border-border bg-bg-base/30 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -171,6 +164,12 @@ export const QaTab: React.FC = () => {
         )}
       </div>
 
+      {qaError && (
+        <div role="alert" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+          {qaError}
+        </div>
+      )}
+
       {/* Message List */}
       <div className="flex-1 p-4 overflow-y-auto space-y-3.5">
         {qaMessages.length === 0 ? (
@@ -192,7 +191,8 @@ export const QaTab: React.FC = () => {
                   key={idx}
                   type="button"
                   onClick={() => handleSendQuestion(qText)}
-                  className="px-2.5 py-1.5 rounded-lg bg-bg-base hover:bg-bg-subtle border border-border text-[11px] text-navy-800 font-medium transition-colors text-left"
+                  disabled={isAsking}
+                  className="px-2.5 py-1.5 rounded-lg bg-bg-base hover:bg-bg-subtle border border-border text-[11px] text-navy-800 font-medium transition-colors text-left disabled:opacity-50"
                 >
                   "{qText}"
                 </button>

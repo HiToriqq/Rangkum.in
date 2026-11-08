@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { Globe, Copy, Check, RotateCcw, Sparkles, Loader2, Languages, FileText } from 'lucide-react';
+import { Globe, Copy, Check, RotateCcw, Sparkles, Loader2, Languages, AlertCircle } from 'lucide-react';
 import { useSessionStore } from '../../store/useSessionStore';
+import { ApiRequestError, translateTranscript } from '../../lib/api';
 
 export const TranslationTab: React.FC = () => {
   const {
     editedTranscript,
     translations,
+    translationIsMock,
     activeTargetLang,
     setActiveTargetLang,
     setTranslation,
     isTranslating,
+    translationError,
     setIsTranslating,
     setTranslationError,
     showToast,
@@ -21,7 +24,9 @@ export const TranslationTab: React.FC = () => {
   const currentTranslation = translations[activeTargetLang] || '';
 
   const handleTranslate = async () => {
-    if (!editedTranscript.trim()) {
+    const sourceText = editedTranscript;
+    const targetLanguage = activeTargetLang;
+    if (!sourceText.trim()) {
       showToast('Transkrip masih kosong. Buat transkrip terlebih dahulu.', 'warning');
       return;
     }
@@ -30,29 +35,23 @@ export const TranslationTab: React.FC = () => {
     setTranslationError(null);
 
     try {
-      const response = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: editedTranscript,
-          targetLanguage: activeTargetLang,
-        }),
-      }).catch(() => null);
+      const data = await translateTranscript(sourceText, targetLanguage);
+      if (useSessionStore.getState().editedTranscript !== sourceText) {
+        return;
+      }
 
-      if (!response || !response.ok) {
-        setTranslationError(
-          'Layanan terjemahan backend belum terhubung (POST /api/translate). Fitur terjemahan AI akan aktif pada tahap backend berikutnya.'
-        );
-        showToast('Backend terjemahan belum aktif.', 'info');
+      setTranslation(targetLanguage, data.translatedText, data.isMock);
+      if (data.isMock) {
+        showToast('Backend memakai terjemahan simulasi. Periksa hasil sebelum digunakan.', 'warning');
       } else {
-        const data = await response.json();
-        setTranslation(activeTargetLang, data.translatedText);
-        showToast(`Terjemahan ke ${activeTargetLang === 'id' ? 'Bahasa Indonesia' : 'English'} selesai.`, 'success');
+        showToast(`Terjemahan ke ${targetLanguage === 'id' ? 'Bahasa Indonesia' : 'English'} selesai.`, 'success');
       }
     } catch (err: unknown) {
-      const error = err as Error;
-      setTranslationError(error.message || 'Gagal menerjemahkan teks');
-      showToast('Gagal menerjemahkan teks.', 'error');
+      const message = err instanceof ApiRequestError || err instanceof Error
+        ? err.message
+        : 'Terjadi kesalahan saat menghubungi layanan terjemahan.';
+      setTranslationError(message);
+      showToast(message, 'error');
     } finally {
       setIsTranslating(false);
     }
@@ -184,14 +183,28 @@ export const TranslationTab: React.FC = () => {
       </div>
 
       {/* Main Body */}
+      {translationError && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm" role="alert">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <p>{translationError}</p>
+        </div>
+      )}
+
       {currentTranslation ? (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between text-[11px] text-txt-muted">
-            <span>
-              {activeView === 'translated'
-                ? `Hasil Terjemahan (${activeTargetLang === 'id' ? 'Bahasa Indonesia' : 'English'}):`
-                : 'Teks Transkrip Sumber (Tidak tertimpa):'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span>
+                {activeView === 'translated'
+                  ? `Hasil Terjemahan (${activeTargetLang === 'id' ? 'Bahasa Indonesia' : 'English'}):`
+                  : 'Teks Transkrip Sumber (Tidak tertimpa):'}
+              </span>
+              {activeView === 'translated' && translationIsMock && (
+                <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-semibold border border-amber-200">
+                  Simulasi
+                </span>
+              )}
+            </div>
             <span className="font-mono">
               {(activeView === 'translated' ? currentTranslation : editedTranscript).split(/\s+/).length} kata
             </span>

@@ -9,6 +9,7 @@ import type {
   ToastState,
   ConfirmModalState,
 } from '../types';
+import { getAudioFileExtension } from '../lib/audio-utils';
 
 interface SessionState {
   // Audio Input State
@@ -37,6 +38,7 @@ interface SessionState {
 
   // Translation State
   translations: { id?: string; en?: string };
+  translationIsMock: boolean;
   activeTargetLang: 'id' | 'en';
   displayMode: 'original' | 'translated';
   isTranslating: boolean;
@@ -86,7 +88,7 @@ interface SessionState {
   // Translation Actions
   setActiveTargetLang: (lang: 'id' | 'en') => void;
   setDisplayMode: (mode: 'original' | 'translated') => void;
-  setTranslation: (lang: 'id' | 'en', text: string) => void;
+  setTranslation: (lang: 'id' | 'en', text: string, isMock?: boolean) => void;
   setIsTranslating: (val: boolean) => void;
   setTranslationError: (err: string | null) => void;
 
@@ -139,6 +141,7 @@ const initialTranscriptState = {
 
 const initialTranslationState = {
   translations: {},
+  translationIsMock: false,
   activeTargetLang: 'en' as const,
   displayMode: 'original' as const,
   isTranslating: false,
@@ -174,19 +177,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   setActiveResultTab: (tab) => set({ activeResultTab: tab }),
 
   setAudioFromRecord: (blob, duration) => {
-    // Revoke previous url if any
     const prevUrl = get().audioUrl;
     if (prevUrl && prevUrl.startsWith('blob:')) {
       URL.revokeObjectURL(prevUrl);
     }
     const audioUrl = URL.createObjectURL(blob);
+    const extension = getAudioFileExtension(blob.type);
     set({
       sourceType: 'record',
       audioBlob: blob,
       audioFile: null,
       audioUrl,
       audioDuration: duration,
-      audioName: `Rekaman_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.webm`,
+      audioName: `Rekaman_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${extension}`,
       audioSize: blob.size,
       recordingStatus: 'stopped',
       recordingDuration: duration,
@@ -207,11 +210,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       audioDuration: duration,
       audioName: file.name,
       audioSize: file.size,
+      recordingStatus: 'idle',
+      recordingDuration: 0,
       urlError: null,
     });
   },
 
   setAudioFromUrl: (url) => {
+    const prevUrl = get().audioUrl;
+    if (prevUrl && prevUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(prevUrl);
+    }
     set({
       sourceType: 'url',
       audioFile: null,
@@ -220,6 +229,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       audioDuration: 0,
       audioName: url.split('/').pop()?.split('?')[0] || 'audio-stream',
       audioSize: 0,
+      recordingStatus: 'idle',
+      recordingDuration: 0,
       urlInput: url,
       urlError: null,
     });
@@ -269,14 +280,26 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       isTranscribing: false,
       transcriptError: null,
       isMock,
+      ...initialTranslationState,
+      ...initialMinutesState,
+      ...initialQaState,
     });
   },
 
-  setEditedTranscript: (text) => set({ editedTranscript: text }),
+  setEditedTranscript: (text) => set({
+    editedTranscript: text,
+    translations: {},
+    translationIsMock: false,
+    isTranslating: false,
+    translationError: null,
+    minutesData: null,
+    minutesError: null,
+    ...initialQaState,
+  }),
 
   restoreRawTranscript: () => {
     const raw = get().rawTranscript;
-    set({ editedTranscript: raw });
+    get().setEditedTranscript(raw);
   },
 
   setIsTranscribing: (val) => set({ isTranscribing: val }),
@@ -285,14 +308,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   setActiveTargetLang: (lang) => set({ activeTargetLang: lang }),
   setDisplayMode: (mode) => set({ displayMode: mode }),
 
-  setTranslation: (lang, text) => {
+  setTranslation: (lang, text, isMock = false) => {
     set((state) => ({
       translations: {
         ...state.translations,
         [lang]: text,
       },
+      translationIsMock: isMock,
       isTranslating: false,
       translationError: null,
+      minutesData: state.minutesSource === 'translation' ? null : state.minutesData,
     }));
   },
 
@@ -307,8 +332,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ minutesData: updater(current) });
   },
 
-  setMinutesSource: (source) => set({ minutesSource: source }),
-  setMinutesLang: (lang) => set({ minutesLang: lang }),
+  setMinutesSource: (source) => set((state) => source === state.minutesSource
+    ? { minutesSource: source }
+    : { minutesSource: source, minutesData: null, minutesError: null }),
+  setMinutesLang: (lang) => set((state) => lang === state.minutesLang
+    ? { minutesLang: lang }
+    : { minutesLang: lang, minutesData: null, minutesError: null }),
   setIsGeneratingMinutes: (val) => set({ isGeneratingMinutes: val }),
   setMinutesError: (err) => set({ minutesError: err, isGeneratingMinutes: false }),
 
@@ -325,7 +354,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }));
   },
 
-  clearQaMessages: () => set({ qaMessages: [] }),
+  clearQaMessages: () => set({ ...initialQaState }),
   setIsAsking: (val) => set({ isAsking: val }),
   setQaError: (err) => set({ qaError: err, isAsking: false }),
 
@@ -344,3 +373,77 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   showConfirmModal: (modal) => set({ confirmModal: modal }),
   dismissConfirmModal: () => set({ confirmModal: null }),
 }));
+
+if (import.meta.vitest) {
+  const { afterEach, describe, expect, it } = import.meta.vitest;
+
+  afterEach(() => {
+    useSessionStore.getState().resetSession();
+  });
+
+  describe('Session state', () => {
+    it('keeps the original transcript separate and marks simulated translations', () => {
+      const store = useSessionStore.getState();
+      store.setTranscript('Teks asli', [], 'id');
+      store.setTranslation('en', '[Simulasi] Not available.', true);
+
+      expect(useSessionStore.getState().rawTranscript).toBe('Teks asli');
+      expect(useSessionStore.getState().editedTranscript).toBe('Teks asli');
+      expect(useSessionStore.getState().translations.en).toBe('[Simulasi] Not available.');
+      expect(useSessionStore.getState().translationIsMock).toBe(true);
+    });
+
+    it('invalidates translations when the edited source changes', () => {
+      const store = useSessionStore.getState();
+      store.setTranscript('Original transcript', [], 'en');
+      store.setTranslation('id', 'Terjemahan', false);
+      useSessionStore.getState().setEditedTranscript('Corrected transcript');
+
+      expect(useSessionStore.getState().rawTranscript).toBe('Original transcript');
+      expect(useSessionStore.getState().editedTranscript).toBe('Corrected transcript');
+      expect(useSessionStore.getState().translations).toEqual({});
+      expect(useSessionStore.getState().translationIsMock).toBe(false);
+    });
+
+    it('invalidates minutes when their transcript or selected source changes', () => {
+      const store = useSessionStore.getState();
+      store.setTranscript('Original transcript', [], 'en');
+      store.setMinutesData({
+        title: 'Old minutes',
+        summary: 'Old summary',
+        discussionPoints: [],
+        decisions: [],
+        actionItems: [],
+        openIssues: [],
+        notes: [],
+      });
+
+      useSessionStore.getState().setEditedTranscript('Corrected transcript');
+      expect(useSessionStore.getState().minutesData).toBeNull();
+
+      useSessionStore.getState().setMinutesData({
+        title: 'New minutes',
+        summary: 'New summary',
+        discussionPoints: [],
+        decisions: [],
+        actionItems: [],
+        openIssues: [],
+        notes: [],
+      });
+      useSessionStore.getState().setMinutesSource('translation');
+      expect(useSessionStore.getState().minutesData).toBeNull();
+    });
+
+    it('clears Q&A history and errors when its transcript changes', () => {
+      const store = useSessionStore.getState();
+      store.setTranscript('Original transcript', [], 'en');
+      store.addQaMessage({ role: 'user', content: 'Old question' });
+      useSessionStore.getState().addQaMessage({ role: 'assistant', content: 'Old answer' });
+
+      useSessionStore.getState().setEditedTranscript('Updated transcript');
+      expect(useSessionStore.getState().qaMessages).toEqual([]);
+      expect(useSessionStore.getState().qaError).toBeNull();
+      expect(useSessionStore.getState().isAsking).toBe(false);
+    });
+  });
+}

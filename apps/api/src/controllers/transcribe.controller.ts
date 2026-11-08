@@ -4,7 +4,12 @@ import { createSttProvider } from '../providers/stt/stt.factory.js';
 import { TranscriptionService } from '../services/transcription.service.js';
 import { downloadSafeAudioUrl } from '../services/ssrf-guard.service.js';
 
-const transcribeService = new TranscriptionService(createSttProvider());
+let transcribeService: TranscriptionService | null = null;
+
+function getTranscribeService(): TranscriptionService {
+  transcribeService ??= new TranscriptionService(createSttProvider());
+  return transcribeService;
+}
 
 const UrlTranscribeSchema = z.object({
   url: z.string().url('URL audio tidak valid'),
@@ -16,9 +21,10 @@ export async function postTranscribe(req: Request, res: Response, next: NextFunc
     // 1. Direct URL mode
     if (req.body && req.body.url) {
       const parsed = UrlTranscribeSchema.parse(req.body);
+      const service = getTranscribeService();
       const downloadedPath = await downloadSafeAudioUrl(parsed.url);
 
-      const result = await transcribeService.processAudio(
+      const result = await service.processAudio(
         downloadedPath,
         { language: parsed.language },
         true // delete downloaded file afterwards
@@ -34,9 +40,10 @@ export async function postTranscribe(req: Request, res: Response, next: NextFunc
       return;
     }
 
+    const service = getTranscribeService();
     const language = (req.body.language as 'auto' | 'id' | 'en') || 'auto';
 
-    const result = await transcribeService.processAudio(
+    const result = await service.processAudio(
       req.file.path,
       { language },
       true // clean up multer temp file afterwards

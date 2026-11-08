@@ -34,17 +34,10 @@ export const Toast: React.FC = () => {
 
   return (
     <div className="fixed bottom-5 right-5 z-50 max-w-sm w-full animate-bounce-subtle pointer-events-auto">
-      <div
-        className={`flex items-start gap-2.5 p-3.5 rounded-xl border shadow-hover backdrop-blur-md transition-all ${borders[type]}`}
-      >
+      <div className={`flex items-start gap-2.5 p-3.5 rounded-xl border shadow-hover backdrop-blur-md transition-all ${borders[type]}`}>
         <div className="mt-0.5">{icons[type]}</div>
         <p className="flex-1 text-xs sm:text-sm font-medium leading-snug">{message}</p>
-        <button
-          type="button"
-          onClick={dismissToast}
-          className="p-1 -mr-1 text-txt-muted hover:text-navy-800 rounded-md hover:bg-black/5 transition-colors"
-          aria-label="Tutup notifikasi"
-        >
+        <button type="button" onClick={dismissToast} className="p-1 -mr-1 text-txt-muted hover:text-navy-800 rounded-md hover:bg-black/5 transition-colors" aria-label="Tutup notifikasi">
           <X className="w-3.5 h-3.5" />
         </button>
       </div>

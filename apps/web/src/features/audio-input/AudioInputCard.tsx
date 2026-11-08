@@ -1,9 +1,10 @@
 import React from 'react';
-import { Mic, Upload, Link2, Sparkles, Loader2, Globe, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Mic, Upload, Link2, Sparkles, Loader2, Globe, AlertCircle } from 'lucide-react';
 import { useSessionStore } from '../../store/useSessionStore';
 import { RecordTab } from './RecordTab';
 import { FileTab } from './FileTab';
 import { LinkTab } from './LinkTab';
+import { ApiRequestError, transcribeAudio } from '../../lib/api';
 
 export const AudioInputCard: React.FC = () => {
   const {
@@ -11,6 +12,8 @@ export const AudioInputCard: React.FC = () => {
     setActiveInputTab,
     audioUrl,
     audioFile,
+    audioName,
+    audioBlob,
     sourceType,
     urlInput,
     language,
@@ -21,9 +24,11 @@ export const AudioInputCard: React.FC = () => {
     setTranscriptError,
     setActiveResultTab,
     showToast,
+    recordingStatus,
   } = useSessionStore();
 
-  const hasAudioSource = Boolean(audioUrl || audioFile);
+  const hasAudioSource = activeInputTab === sourceType && Boolean(audioUrl || audioFile);
+  const isRecording = recordingStatus === 'recording' || recordingStatus === 'paused';
 
   const handleTranscribe = async () => {
     if (!hasAudioSource) {
@@ -35,50 +40,40 @@ export const AudioInputCard: React.FC = () => {
     setTranscriptError(null);
 
     try {
-      // In Task 02, we attempt to call the API endpoint.
-      // If backend is not yet started, we show a transparent and honest status notice.
-      const formData = new FormData();
-      if (sourceType === 'file' && audioFile) {
-        formData.append('audio', audioFile);
-      } else if (sourceType === 'record' && audioFile) {
-        formData.append('audio', audioFile);
-      } else if (sourceType === 'record' && useSessionStore.getState().audioBlob) {
-        const blob = useSessionStore.getState().audioBlob!;
-        formData.append('audio', blob, 'recording.webm');
-      } else if (sourceType === 'url') {
-        formData.append('url', urlInput);
-      }
-      formData.append('language', language);
+      const request = sourceType === 'url'
+        ? transcribeAudio({ type: 'url', url: urlInput, language })
+        : (() => {
+            const file = sourceType === 'file' ? audioFile : audioBlob;
+            if (!file) throw new Error('Sumber audio tidak tersedia. Pilih file atau rekam audio kembali.');
+            return transcribeAudio({
+              type: 'file',
+              file,
+              fileName: audioName || 'recording.webm',
+              language,
+            });
+          })();
 
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: sourceType === 'url' ? JSON.stringify({ url: urlInput, language }) : formData,
-        headers: sourceType === 'url' ? { 'Content-Type': 'application/json' } : undefined,
-      }).catch(() => null);
-
-      if (!response || !response.ok) {
-        // Backend not running or endpoint not yet deployed
-        setTranscriptError(
-          'Layanan backend API belum terhubung (POST /api/transcribe). Sesuai roadmap, integrasi AI backend akan dikerjakan pada tahap berikutnya.'
-        );
-        showToast('Backend API belum terhubung. Tahap UI & interaksi siap.', 'info');
+      const data = await request;
+      setTranscript(data.text, data.segments, data.language, data.isMock);
+      setActiveResultTab('transcript');
+      if (data.isMock) {
+        showToast('Backend memakai STT simulasi. Hasil ditandai sebagai mock, bukan transkripsi audio.', 'warning');
       } else {
-        const data = await response.json();
-        setTranscript(data.text, data.segments, data.language, data.isMock);
-        setActiveResultTab('transcript');
-        showToast('Transkripsi berhasil dibuat!', 'success');
+        showToast('Transkripsi berhasil dibuat.', 'success');
       }
     } catch (err: unknown) {
-      const error = err as Error;
-      setTranscriptError(error.message || 'Gagal memproses audio');
-      showToast('Gagal memproses transkrip.', 'error');
+      const message = err instanceof ApiRequestError || err instanceof Error
+        ? err.message
+        : 'Terjadi kesalahan saat menghubungi backend.';
+      setTranscriptError(message);
+      showToast(message, 'error');
     } finally {
       setIsTranscribing(false);
     }
   };
 
   return (
-    <div className="bg-bg-surface rounded-2xl border border-border shadow-card overflow-hidden">
+    <div className="bg-bg-surface rounded-xl sm:rounded-2xl border border-border shadow-card overflow-hidden">
       {/* Top Header & Tab Navigation */}
       <div className="p-4 sm:p-5 border-b border-border bg-bg-base/30">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -87,7 +82,7 @@ export const AudioInputCard: React.FC = () => {
               Input Audio
             </h2>
             <p className="text-xs text-txt-muted">
-              Pilih metode penyediaan rekaman suara atau audio diskusi
+              Pilih sumber audio
             </p>
           </div>
 
@@ -108,44 +103,50 @@ export const AudioInputCard: React.FC = () => {
         </div>
 
         {/* 3 Tabs */}
-        <div className="mt-4 flex rounded-xl bg-bg-subtle p-1 border border-border/80">
+        <div className="mt-4 flex rounded-lg sm:rounded-xl bg-bg-subtle p-1 border border-border/80">
           <button
             type="button"
             onClick={() => setActiveInputTab('record')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
-              activeInputTab === 'record'
-                ? 'bg-bg-surface text-navy-800 shadow-sm'
-                : 'text-txt-muted hover:text-navy-800'
-            }`}
+            disabled={isRecording}
+            title={isRecording ? 'Selesaikan rekaman sebelum mengganti tab.' : undefined}
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 px-1.5 sm:px-3 rounded-md sm:rounded-lg text-[11px] sm:text-sm font-semibold transition-all ${
+            activeInputTab === 'record'
+              ? 'bg-bg-surface text-navy-800 shadow-sm'
+              : 'text-txt-muted hover:text-navy-800'
+            } ${isRecording ? 'cursor-not-allowed opacity-60' : ''}`}
           >
             <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-terracotta-600" />
-            <span>Rekam Suara</span>
+            <span className="whitespace-nowrap">Rekam</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveInputTab('file')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
-              activeInputTab === 'file'
-                ? 'bg-bg-surface text-navy-800 shadow-sm'
-                : 'text-txt-muted hover:text-navy-800'
-            }`}
+            disabled={isRecording}
+            title={isRecording ? 'Selesaikan rekaman sebelum mengganti tab.' : undefined}
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 px-1.5 sm:px-3 rounded-md sm:rounded-lg text-[11px] sm:text-sm font-semibold transition-all ${
+            activeInputTab === 'file'
+              ? 'bg-bg-surface text-navy-800 shadow-sm'
+              : 'text-txt-muted hover:text-navy-800'
+            } ${isRecording ? 'cursor-not-allowed opacity-60' : ''}`}
           >
             <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-navy-600" />
-            <span>Import File</span>
+            <span className="whitespace-nowrap">Import File</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveInputTab('url')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
-              activeInputTab === 'url'
-                ? 'bg-bg-surface text-navy-800 shadow-sm'
-                : 'text-txt-muted hover:text-navy-800'
-            }`}
+            disabled={isRecording}
+            title={isRecording ? 'Selesaikan rekaman sebelum mengganti tab.' : undefined}
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 px-1.5 sm:px-3 rounded-md sm:rounded-lg text-[11px] sm:text-sm font-semibold transition-all ${
+            activeInputTab === 'url'
+              ? 'bg-bg-surface text-navy-800 shadow-sm'
+              : 'text-txt-muted hover:text-navy-800'
+            } ${isRecording ? 'cursor-not-allowed opacity-60' : ''}`}
           >
             <Link2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-navy-600" />
-            <span>Gunakan Link</span>
+            <span className="whitespace-nowrap">Pakai Link</span>
           </button>
         </div>
       </div>
@@ -158,12 +159,12 @@ export const AudioInputCard: React.FC = () => {
 
         {/* Processing CTA Area */}
         <div className="mt-6 pt-5 border-t border-border flex flex-col gap-3">
-          <div className="flex items-center justify-between text-xs text-txt-muted">
+          <div className="flex flex-col items-start gap-2 text-xs text-txt-muted sm:flex-row sm:items-center sm:justify-between">
             <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Audio dikirim ke provider AI terenkripsi</span>
+              <AlertCircle className="w-4 h-4 text-terracotta-600 shrink-0" />
+              <span>Backend diperlukan untuk memproses audio; tidak ada hasil simulasi</span>
             </span>
-            <span className="font-mono text-[11px]">
+            <span className="self-start rounded-md bg-bg-base px-2 py-1 font-mono text-[11px] sm:self-auto">
               {hasAudioSource ? 'Audio Siap' : 'Menunggu Audio'}
             </span>
           </div>

@@ -61,6 +61,7 @@ export const FileTab: React.FC = () => {
     if (e.target.files && e.target.files.length > 0) {
       processFile(e.target.files[0]);
     }
+    e.currentTarget.value = '';
   };
 
   const handleRemove = () => {
@@ -91,7 +92,18 @@ export const FileTab: React.FC = () => {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={(e) => {
+            if (e.target !== fileInputRef.current) fileInputRef.current?.click();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              fileInputRef.current?.click();
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Pilih atau seret file audio"
           className={`flex flex-col items-center justify-center p-6 sm:p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
             isDragging
               ? 'border-terracotta-500 bg-terracotta-50/50 scale-[0.99]'
@@ -103,6 +115,7 @@ export const FileTab: React.FC = () => {
             type="file"
             accept={SUPPORTED_AUDIO_EXTENSIONS.join(',')}
             onChange={handleFileChange}
+            onClick={(e) => e.stopPropagation()}
             className="hidden"
           />
 

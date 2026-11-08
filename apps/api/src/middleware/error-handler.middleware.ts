@@ -2,6 +2,8 @@ import type { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { SsrfError } from '../services/ssrf-guard.service.js';
 import { AudioValidationError } from '../services/audio.service.js';
+import { SttProviderError } from '../providers/stt/stt-provider-error.js';
+import { LlmProviderConfigurationError, LlmProviderUnavailableError } from '../providers/llm/llm-provider-error.js';
 
 export function errorHandler(
   err: any,
@@ -31,6 +33,16 @@ export function errorHandler(
     res.status(400).json({
       error: err.message,
     });
+    return;
+  }
+
+  if (err instanceof SttProviderError) {
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
+
+  if (err instanceof LlmProviderConfigurationError || err instanceof LlmProviderUnavailableError) {
+    res.status(err.status).json({ error: err.message });
     return;
   }
 

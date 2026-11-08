@@ -24,23 +24,12 @@ export const ConfirmModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/50 backdrop-blur-sm animate-fade-in">
       <div className="relative w-full max-w-md bg-bg-surface rounded-xl border border-border shadow-hover p-6 overflow-hidden">
-        <button
-          type="button"
-          onClick={dismissConfirmModal}
-          className="absolute top-4 right-4 p-1 text-txt-muted hover:text-navy-800 rounded-md hover:bg-bg-subtle transition-colors"
-          aria-label="Tutup"
-        >
+        <button type="button" onClick={dismissConfirmModal} className="absolute top-4 right-4 p-1 text-txt-muted hover:text-navy-800 rounded-md hover:bg-bg-subtle transition-colors" aria-label="Tutup">
           <X className="w-4 h-4" />
         </button>
 
         <div className="flex items-start gap-3">
-          <div
-            className={`p-2 rounded-lg flex-shrink-0 ${
-              isDestructive
-                ? 'bg-red-50 text-red-600'
-                : 'bg-terracotta-50 text-terracotta-700'
-            }`}
-          >
+          <div className={`p-2 rounded-lg flex-shrink-0 ${isDestructive ? 'bg-red-50 text-red-600' : 'bg-terracotta-50 text-terracotta-700'}`}>
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div className="flex-1">
@@ -52,22 +41,10 @@ export const ConfirmModal: React.FC = () => {
         </div>
 
         <div className="mt-6 flex items-center justify-end gap-2.5">
-          <button
-            type="button"
-            onClick={dismissConfirmModal}
-            className="px-3.5 py-2 text-xs font-semibold rounded-lg text-txt-primary hover:bg-bg-subtle border border-border transition-colors"
-          >
+          <button type="button" onClick={dismissConfirmModal} className="px-3.5 py-2 text-xs font-semibold rounded-lg text-txt-primary hover:bg-bg-subtle border border-border transition-colors">
             {cancelLabel}
           </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg text-white transition-all shadow-sm active:scale-[0.98] ${
-              isDestructive
-                ? 'bg-red-600 hover:bg-red-700 focus:ring-2 focus:ring-red-400'
-                : 'bg-navy-800 hover:bg-navy-700 focus:ring-2 focus:ring-navy-500'
-            }`}
-          >
+          <button type="button" onClick={handleConfirm} className={`px-4 py-2 text-xs font-semibold rounded-lg text-white transition-all shadow-sm active:scale-[0.98] ${isDestructive ? 'bg-red-600 hover:bg-red-700 focus:ring-2 focus:ring-red-400' : 'bg-navy-800 hover:bg-navy-700 focus:ring-2 focus:ring-navy-500'}`}>
             {confirmLabel}
           </button>
         </div>

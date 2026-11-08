@@ -44,8 +44,8 @@
   - Menjawab jujur bila topik tidak dibahas dalam rekaman.
 - **Ekspor Dokumen:**
   - Salin teks sekali klik ke clipboard.
-  - Unduh transkrip sebagai berkas teks (`.txt`).
-  - Ekspor notulen rapat langsung sebagai berkas dokumen **PDF** resmi.
+  - Unduh transkrip yang telah diedit sebagai berkas teks (`.txt`).
+  - Ekspor notulen yang telah diedit sebagai berkas **TXT** atau dokumen **PDF**.
 
 ---
 
@@ -145,7 +145,7 @@ OPENAI_API_KEY=sk-...
 GEMINI_API_KEY=...
 ```
 
-> **Mode Mock:** Jika API key belum disetel, aplikasi secara otomatis menggunakan `MockProvider` dengan transkrip dan notulen realistis berpenanda jelas (*isMock: true*).
+> **Mode Mock:** `STT_PROVIDER=mock` mengembalikan contoh transkrip, bukan hasil dari audio yang dikirim. `LLM_PROVIDER=mock` tidak menghasilkan notulen atau jawaban Q&A agar isi rapat tidak direkayasa; kedua endpoint mengembalikan HTTP 503 dengan status provider yang belum tersedia. Terjemahan menampilkan pemberitahuan simulasi. Provider Groq/OpenAI yang dipilih tanpa API key mengembalikan error konfigurasi—tidak beralih diam-diam ke hasil mock.
 
 ---
 
@@ -165,6 +165,14 @@ Buka tab terminal baru pada direktori root:
 npm run dev:api
 # API aktif di: http://localhost:3001
 ```
+
+Frontend menghubungi backend melalui proxy Vite (`/api`). Jalankan kedua perintah di terminal terpisah; indikator di header menunjukkan status koneksi dan provider STT aktif. Dengan `STT_PROVIDER=mock`, API mengembalikan contoh transkrip yang ditandai **Mock Provider Mode**—contoh tersebut bukan hasil dari audio yang diunggah. Untuk transkripsi audio nyata, pilih `groq` atau `openai`, atur API key terkait, dan pastikan FFmpeg tersedia di `PATH`.
+
+### Menjalankan tes otomatis
+```bash
+npm test
+```
+Tes ditempatkan bersama kode yang diuji di file sumber dan hanya didaftarkan ketika dijalankan oleh Vitest. Untuk menambahkan tes, gunakan blok `if (import.meta.vitest)` pada file sumber terkait.
 
 ---
 

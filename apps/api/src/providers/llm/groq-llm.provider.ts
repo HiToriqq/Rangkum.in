@@ -4,6 +4,7 @@ import { MinutesSchema } from '../../types/index.js';
 
 export class GroqLlmProvider implements LlmProvider {
   name = 'Groq LLM';
+  isMock = false;
   private apiKey: string;
   private model: string;
 

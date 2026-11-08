@@ -1,5 +1,6 @@
 import type { LlmProvider } from '../providers/llm/llm.provider.js';
 import type { ChatMessage, QaResponse } from '../types/index.js';
+import { LlmProviderUnavailableError } from '../providers/llm/llm-provider-error.js';
 
 function tokenize(text: string): string[] {
   return text
@@ -35,6 +36,10 @@ export class QaService {
 
   constructor(llmProvider: LlmProvider) {
     this.llmProvider = llmProvider;
+  }
+
+  get isMock(): boolean {
+    return this.llmProvider.isMock;
   }
 
   /**
@@ -102,6 +107,11 @@ export class QaService {
     if (!transcript || !transcript.trim()) {
       throw new Error('Transkrip tidak boleh kosong untuk menjawab pertanyaan.');
     }
+    if (this.llmProvider.isMock) {
+      throw new LlmProviderUnavailableError(
+        'Tanya AI belum tersedia saat LLM_PROVIDER=mock. Konfigurasikan provider Groq atau OpenAI.'
+      );
+    }
 
     // Limit conversation history to the last 6 turns to keep context tidy
     const trimmedHistory = history.slice(-6);
@@ -109,4 +119,81 @@ export class QaService {
     const relevantContext = this.getRelevantContext(transcript, question);
     return this.llmProvider.answerQuestion(question, relevantContext, trimmedHistory);
   }
+}
+
+if (import.meta.vitest) {
+  const { describe, expect, it, vi } = import.meta.vitest;
+
+  describe('QaService', () => {
+    it('does not call the mock provider or return a fabricated answer', async () => {
+      const provider: LlmProvider = {
+        name: 'Mock LLM',
+        isMock: true,
+        translate: vi.fn(),
+        generateMinutes: vi.fn(),
+        answerQuestion: vi.fn(),
+      };
+      const service = new QaService(provider);
+
+      await expect(service.askQuestion('Siapa PIC?', 'Transkrip pengguna.')).rejects.toMatchObject({
+        name: 'LlmProviderUnavailableError',
+        status: 503,
+      });
+      expect(provider.answerQuestion).not.toHaveBeenCalled();
+    });
+
+    it('passes only the six most recent history messages to a configured provider', async () => {
+      const provider: LlmProvider = {
+        name: 'Test LLM',
+        isMock: false,
+        translate: vi.fn(),
+        generateMinutes: vi.fn(),
+        answerQuestion: vi.fn(),
+      };
+      const answerQuestion = vi.fn(async (
+        _question: string,
+        _context: string,
+        _history: ChatMessage[]
+      ) => ({ answer: 'Jawaban dari provider.' }));
+      provider.answerQuestion = answerQuestion;
+      const service = new QaService(provider);
+      const history = Array.from({ length: 8 }, (_, index) => ({
+        role: index % 2 === 0 ? 'user' as const : 'assistant' as const,
+        content: `Pesan ${index}`,
+      }));
+
+      await expect(service.askQuestion('Pertanyaan?', 'Isi transkrip.', history)).resolves.toEqual({
+        answer: 'Jawaban dari provider.',
+      });
+      expect(answerQuestion).toHaveBeenCalledWith(
+        'Pertanyaan?',
+        'Isi transkrip.',
+        history.slice(-6)
+      );
+    });
+
+    it('selects transcript context relevant to a question for long transcripts', async () => {
+      const provider: LlmProvider = {
+        name: 'Test LLM',
+        isMock: false,
+        translate: vi.fn(),
+        generateMinutes: vi.fn(),
+        answerQuestion: vi.fn(),
+      };
+      const answerQuestion = vi.fn(async (
+        _question: string,
+        _context: string,
+        _history: ChatMessage[]
+      ) => ({ answer: 'Ditemukan.' }));
+      provider.answerQuestion = answerQuestion;
+      const service = new QaService(provider);
+      const transcript = `${Array(1500).fill('filler').join(' ')}\nPembahasan zirconium unik berlangsung hari ini.`;
+
+      await service.askQuestion('Apa pembahasan zirconium?', transcript);
+
+      const selectedContext = answerQuestion.mock.calls[0][1];
+      expect(selectedContext).toContain('zirconium');
+      expect(selectedContext.length).toBeLessThan(transcript.length);
+    });
+  });
 }

@@ -61,6 +61,40 @@ export function isPrivateOrReservedIp(ip: string): boolean {
   return false;
 }
 
+if (import.meta.vitest) {
+  const { describe, expect, it } = import.meta.vitest;
+
+  describe('SSRF Guard Service', () => {
+    it('blocks loopback IP addresses (127.0.0.0/8, ::1)', () => {
+      expect(isPrivateOrReservedIp('127.0.0.1')).toBe(true);
+      expect(isPrivateOrReservedIp('127.255.255.255')).toBe(true);
+      expect(isPrivateOrReservedIp('::1')).toBe(true);
+      expect(isPrivateOrReservedIp('::ffff:127.0.0.1')).toBe(true);
+    });
+
+    it('blocks private IP addresses', () => {
+      expect(isPrivateOrReservedIp('10.0.0.1')).toBe(true);
+      expect(isPrivateOrReservedIp('10.255.0.1')).toBe(true);
+      expect(isPrivateOrReservedIp('172.16.0.1')).toBe(true);
+      expect(isPrivateOrReservedIp('172.31.255.255')).toBe(true);
+      expect(isPrivateOrReservedIp('192.168.1.10')).toBe(true);
+      expect(isPrivateOrReservedIp('192.168.0.1')).toBe(true);
+    });
+
+    it('blocks cloud metadata and link-local addresses', () => {
+      expect(isPrivateOrReservedIp('169.254.169.254')).toBe(true);
+      expect(isPrivateOrReservedIp('169.254.1.1')).toBe(true);
+      expect(isPrivateOrReservedIp('fe80::1')).toBe(true);
+    });
+
+    it('allows public IP addresses', () => {
+      expect(isPrivateOrReservedIp('8.8.8.8')).toBe(false);
+      expect(isPrivateOrReservedIp('1.1.1.1')).toBe(false);
+      expect(isPrivateOrReservedIp('93.184.216.34')).toBe(false);
+    });
+  });
+}
+
 /**
  * Validate URL and download safely with SSRF protection, size limit, and timeout
  */

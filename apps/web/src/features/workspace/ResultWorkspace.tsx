@@ -52,8 +52,8 @@ export const ResultWorkspace: React.FC = () => {
   return (
     <div className="bg-bg-surface rounded-2xl border border-border shadow-card overflow-hidden flex flex-col">
       {/* Tab Navigation Header */}
-      <div className="border-b border-border bg-bg-base/30 px-3 sm:px-6 pt-3 flex items-center justify-between overflow-x-auto">
-        <div className="flex gap-1 sm:gap-2">
+      <div className="border-b border-border bg-bg-base/30 px-2 sm:px-6 pt-2 sm:pt-3 flex items-center justify-between overflow-x-auto">
+        <div className="flex min-w-full sm:min-w-0 justify-between gap-0.5 sm:gap-2">
           {tabs.map((tab) => {
             const isActive = activeResultTab === tab.id;
             return (
@@ -61,13 +61,13 @@ export const ResultWorkspace: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveResultTab(tab.id)}
-                className={`relative flex items-center gap-2 py-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
+                className={`relative flex flex-1 sm:flex-initial items-center justify-center gap-1.5 sm:gap-2 py-3 px-1.5 sm:px-4 text-[11px] sm:text-sm font-semibold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
                   isActive
                     ? 'border-terracotta-600 text-navy-900 bg-bg-surface rounded-t-lg'
                     : 'border-transparent text-txt-muted hover:text-navy-800 hover:border-border'
                 }`}
               >
-                <span className={isActive ? 'text-terracotta-600' : 'text-txt-muted'}>
+                <span className={`shrink-0 max-[360px]:hidden ${isActive ? 'text-terracotta-600' : 'text-txt-muted'}`}>
                   {tab.icon}
                 </span>
                 <span>{tab.label}</span>
@@ -81,7 +81,7 @@ export const ResultWorkspace: React.FC = () => {
       </div>
 
       {/* Tab Contents */}
-      <div className="p-4 sm:p-6 flex-1">
+      <div className="p-3 sm:p-6 flex-1">
         {activeResultTab === 'transcript' && <TranscriptTab />}
         {activeResultTab === 'translation' && <TranslationTab />}
         {activeResultTab === 'minutes' && <MinutesTab />}

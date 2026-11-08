@@ -45,6 +45,25 @@ export function getSupportedMimeType(): string {
   return '';
 }
 
+export function getAudioFileExtension(mimeType: string): string {
+  const mediaType = mimeType.split(';', 1)[0].toLowerCase();
+  const extensions: Record<string, string> = {
+    'audio/aac': 'aac',
+    'audio/flac': 'flac',
+    'audio/mp4': 'm4a',
+    'audio/mpeg': 'mp3',
+    'audio/ogg': 'ogg',
+    'audio/wav': 'wav',
+    'audio/webm': 'webm',
+    'audio/x-flac': 'flac',
+    'audio/x-m4a': 'm4a',
+    'audio/x-wav': 'wav',
+    'audio/wave': 'wav',
+  };
+
+  return extensions[mediaType] || 'webm';
+}
+
 /**
  * Validate selected or dropped audio file
  */
@@ -69,10 +88,12 @@ export function validateAudioFile(file: File): { valid: boolean; error?: string 
   const fileName = file.name.toLowerCase();
   const hasValidExt = SUPPORTED_AUDIO_EXTENSIONS.some((ext) => fileName.endsWith(ext));
 
-  // Check MIME type if present
-  const hasValidMime = !file.type || SUPPORTED_AUDIO_MIMES.includes(file.type.toLowerCase()) || file.type.startsWith('audio/');
+  const mimeType = file.type.toLowerCase();
+  const hasAudioMime = mimeType.startsWith('audio/');
+  const hasGenericMime = mimeType === 'application/octet-stream';
 
-  if (!hasValidExt && !hasValidMime) {
+  if ((!hasValidExt && !SUPPORTED_AUDIO_MIMES.includes(mimeType)) ||
+      (mimeType && !hasAudioMime && !hasGenericMime)) {
     return {
       valid: false,
       error: `Format file tidak didukung. Harap gunakan format: ${SUPPORTED_AUDIO_EXTENSIONS.join(', ')}`,
@@ -108,22 +129,24 @@ export function validateAudioUrl(urlStr: string): { valid: boolean; error?: stri
 
   const hostname = parsed.hostname.toLowerCase();
 
-  // Explicit check for non-MVP platforms
-  if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
+  // Match exact hosts and subdomains, not arbitrary strings containing a platform name.
+  const isHostOrSubdomain = (domain: string) => hostname === domain || hostname.endsWith(`.${domain}`);
+
+  if (isHostOrSubdomain('youtube.com') || isHostOrSubdomain('youtu.be')) {
     return {
       valid: false,
       error: 'Link YouTube belum didukung di versi MVP karena kebijakan ToS. Gunakan direct audio URL atau unduh audio terlebih dahulu.',
     };
   }
 
-  if (hostname.includes('drive.google.com')) {
+  if (isHostOrSubdomain('drive.google.com')) {
     return {
       valid: false,
       error: 'Google Drive memerlukan autentikasi browser. Harap unduh file audio terlebih dahulu lalu gunakan tab "Import File".',
     };
   }
 
-  if (hostname.includes('zoom.us') || hostname.includes('zoomgov.com')) {
+  if (isHostOrSubdomain('zoom.us') || isHostOrSubdomain('zoomgov.com')) {
     return {
       valid: false,
       error: 'Zoom Cloud recording memerlukan token rapat. Fitur ini dijadwalkan untuk versi V2.',
