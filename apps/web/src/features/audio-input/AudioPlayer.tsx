@@ -5,24 +5,29 @@ import { formatDuration } from '../../lib/format';
 interface AudioPlayerProps {
   src: string;
   title?: string;
+  fallbackDuration?: number;
   onDurationDetected?: (duration: number) => void;
 }
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   src,
   title,
+  fallbackDuration = 0,
   onDurationDetected,
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isDetectingDurationRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState(fallbackDuration);
   const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
-  }, [src]);
+    setDuration(fallbackDuration);
+    isDetectingDurationRef.current = false;
+  }, [src, fallbackDuration]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -39,17 +44,37 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
+    if (isDetectingDurationRef.current) {
+      isDetectingDurationRef.current = false;
+      const detectedDuration = audioRef.current.duration;
+      const actualDuration = Number.isFinite(detectedDuration) && detectedDuration > 0
+        ? detectedDuration
+        : audioRef.current.currentTime;
+      if (actualDuration > 0) {
+        setDuration(actualDuration);
+        onDurationDetected?.(actualDuration);
+      }
+      audioRef.current.currentTime = 0;
+      setCurrentTime(0);
+      return;
+    }
     setCurrentTime(audioRef.current.currentTime);
+  };
+
+  const updateDuration = (value: number) => {
+    if (!Number.isFinite(value) || value <= 0) return;
+    setDuration(value);
+    onDurationDetected?.(value);
   };
 
   const handleLoadedMetadata = () => {
     if (!audioRef.current) return;
     const dur = audioRef.current.duration;
-    if (!isNaN(dur) && isFinite(dur)) {
-      setDuration(dur);
-      if (onDurationDetected) {
-        onDurationDetected(dur);
-      }
+    if (Number.isFinite(dur) && dur > 0) {
+      updateDuration(dur);
+    } else if (dur === Infinity) {
+      isDetectingDurationRef.current = true;
+      audioRef.current.currentTime = Number.MAX_SAFE_INTEGER;
     }
   };
 
@@ -84,6 +109,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         src={src}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
+        onDurationChange={() => {
+          if (!audioRef.current) return;
+          const actualDuration = audioRef.current.duration;
+          if (Number.isFinite(actualDuration) && actualDuration > 0) {
+            updateDuration(actualDuration);
+            if (isDetectingDurationRef.current) {
+              isDetectingDurationRef.current = false;
+              audioRef.current.currentTime = 0;
+              setCurrentTime(0);
+            }
+          }
+        }}
         onEnded={handleEnded}
         preload="metadata"
       />

@@ -9,6 +9,7 @@ export const RecordTab: React.FC = () => {
   const {
     recordingStatus,
     recordingDuration,
+    audioDuration,
     audioUrl,
     sourceType,
     setAudioFromRecord,
@@ -335,7 +336,11 @@ export const RecordTab: React.FC = () => {
       {/* Audio Preview Player if recorded */}
       {recordingStatus === 'stopped' && hasRecording && (
         <div className="mt-1">
-          <AudioPlayer src={audioUrl || ''} title="Hasil Rekaman Suara" />
+          <AudioPlayer
+            src={audioUrl || ''}
+            title="Hasil Rekaman Suara"
+            fallbackDuration={audioDuration}
+          />
         </div>
       )}
     </div>
