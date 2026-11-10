@@ -42,7 +42,7 @@ export const TranslationTab: React.FC = () => {
 
       setTranslation(targetLanguage, data.translatedText, data.isMock);
       if (data.isMock) {
-        showToast('Backend memakai terjemahan simulasi. Periksa hasil sebelum digunakan.', 'warning');
+        showToast('Terjemahan diterima (mode simulasi).', 'warning');
       } else {
         showToast(`Terjemahan ke ${targetLanguage === 'id' ? 'Bahasa Indonesia' : 'English'} selesai.`, 'success');
       }
@@ -193,18 +193,11 @@ export const TranslationTab: React.FC = () => {
       {currentTranslation ? (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between text-[11px] text-txt-muted">
-            <div className="flex items-center gap-2">
-              <span>
-                {activeView === 'translated'
-                  ? `Hasil Terjemahan (${activeTargetLang === 'id' ? 'Bahasa Indonesia' : 'English'}):`
-                  : 'Teks Transkrip Sumber (Tidak tertimpa):'}
-              </span>
-              {activeView === 'translated' && translationIsMock && (
-                <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-semibold border border-amber-200">
-                  Simulasi
-                </span>
-              )}
-            </div>
+            <span>
+              {activeView === 'translated'
+                ? `Hasil Terjemahan (${activeTargetLang === 'id' ? 'Bahasa Indonesia' : 'English'}):`
+                : 'Teks Transkrip Sumber (Tidak tertimpa):'}
+            </span>
             <span className="font-mono">
               {(activeView === 'translated' ? currentTranslation : editedTranscript).split(/\s+/).length} kata
             </span>

@@ -74,7 +74,7 @@ export const QaTab: React.FC = () => {
       const current = useSessionStore.getState();
       if (requestId !== requestIdRef.current || current.editedTranscript !== transcript) return;
       if (data.isMock) {
-        throw new Error('Backend mengembalikan jawaban simulasi. Jawaban tersebut tidak ditampilkan sebagai hasil dari transkrip.');
+        throw new Error('Tanya AI tidak dapat digunakan dalam mode simulasi. Pastikan provider LLM sudah dikonfigurasi.');
       }
 
       addQaMessage({

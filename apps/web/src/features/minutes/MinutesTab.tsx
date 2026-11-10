@@ -62,7 +62,7 @@ export const MinutesTab: React.FC = () => {
     try {
       const result = await generateMinutes(textSource, minutesLang);
       if (result.isMock) {
-        throw new Error('Backend mengembalikan hasil simulasi. Notulen tersebut tidak ditampilkan agar tidak dianggap berasal dari transkrip.');
+        throw new Error('Notulen tidak dapat dibuat dalam mode simulasi. Pastikan provider LLM sudah dikonfigurasi.');
       }
 
       const current = useSessionStore.getState();

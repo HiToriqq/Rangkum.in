@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic, Upload, Link2, Sparkles, Loader2, Globe, AlertCircle } from 'lucide-react';
+import { Mic, Upload, Link2, Sparkles, Loader2, Globe } from 'lucide-react';
 import { useSessionStore } from '../../store/useSessionStore';
 import { RecordTab } from './RecordTab';
 import { FileTab } from './FileTab';
@@ -57,7 +57,7 @@ export const AudioInputCard: React.FC = () => {
       setTranscript(data.text, data.segments, data.language, data.isMock);
       setActiveResultTab('transcript');
       if (data.isMock) {
-        showToast('Backend memakai STT simulasi. Hasil ditandai sebagai mock, bukan transkripsi audio.', 'warning');
+        showToast('Transkripsi diterima (mode simulasi).', 'warning');
       } else {
         showToast('Transkripsi berhasil dibuat.', 'success');
       }
@@ -159,11 +159,7 @@ export const AudioInputCard: React.FC = () => {
 
         {/* Processing CTA Area */}
         <div className="mt-6 pt-5 border-t border-border flex flex-col gap-3">
-          <div className="flex flex-col items-start gap-2 text-xs text-txt-muted sm:flex-row sm:items-center sm:justify-between">
-            <span className="flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4 text-terracotta-600 shrink-0" />
-              <span>Backend diperlukan untuk memproses audio; tidak ada hasil simulasi</span>
-            </span>
+          <div className="flex items-center justify-end text-xs text-txt-muted">
             <span className="self-start rounded-md bg-bg-base px-2 py-1 font-mono text-[11px] sm:self-auto">
               {hasAudioSource ? 'Audio Siap' : 'Menunggu Audio'}
             </span>
