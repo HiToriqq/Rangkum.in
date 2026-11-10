@@ -14,6 +14,7 @@ function getTranscribeService(): TranscriptionService {
 const UrlTranscribeSchema = z.object({
   url: z.string().url('URL audio tidak valid'),
   language: z.enum(['auto', 'id', 'en']).optional().default('auto'),
+  prompt: z.string().max(1000).optional(),
 });
 
 export async function postTranscribe(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -24,10 +25,7 @@ export async function postTranscribe(req: Request, res: Response, next: NextFunc
       const service = getTranscribeService();
       const downloadedPath = await downloadSafeAudioUrl(parsed.url);
 
-      const prompt =
-        parsed.language === 'en'
-          ? 'Formal meeting conversation, clear transcription of discussion and action items.'
-          : 'Transkripsi percakapan rapat, perkenalan diri, nama pembicara, program studi, kampus, dan diskusi dalam Bahasa Indonesia secara akurat.';
+      const prompt = parsed.prompt?.trim() || undefined;
 
       const result = await service.processAudio(
         downloadedPath,
@@ -47,11 +45,9 @@ export async function postTranscribe(req: Request, res: Response, next: NextFunc
 
     const service = getTranscribeService();
     const language = (req.body.language as 'auto' | 'id' | 'en') || 'auto';
-
-    const prompt =
-      language === 'en'
-        ? 'Formal meeting conversation, clear transcription of discussion and action items.'
-        : 'Transkripsi percakapan rapat, perkenalan diri, nama pembicara, program studi, kampus, dan diskusi dalam Bahasa Indonesia secara akurat.';
+    const prompt = typeof req.body.prompt === 'string' && req.body.prompt.trim()
+      ? req.body.prompt.trim()
+      : undefined;
 
     const result = await service.processAudio(
       req.file.path,
