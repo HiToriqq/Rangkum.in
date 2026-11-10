@@ -38,12 +38,13 @@ export abstract class OpenAiCompatibleSttProvider implements SttProvider {
     formData.append('file', new Blob([fileBuffer], { type: 'audio/wav' }), path.basename(audioFilePath));
     formData.append('model', this.model);
     formData.append('response_format', 'verbose_json');
+    formData.append('temperature', '0');
 
     if (options?.language && options.language !== 'auto') {
       formData.append('language', options.language);
     }
-    if (options?.prompt) {
-      formData.append('prompt', options.prompt);
+    if (options?.prompt?.trim()) {
+      formData.append('prompt', options.prompt.trim());
     }
 
     let response: Response;

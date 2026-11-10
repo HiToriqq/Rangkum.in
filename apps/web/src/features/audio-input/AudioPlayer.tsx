@@ -103,76 +103,55 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   return (
-    <div className="w-full p-3 sm:p-3.5 bg-bg-surface rounded-xl border border-border shadow-card flex flex-col gap-2">
+    <div className="w-full p-3 sm:p-3.5 rounded-xl flex flex-col gap-2"
+      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}>
       <audio
-        ref={audioRef}
-        src={src}
+        ref={audioRef} src={src}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onDurationChange={() => {
           if (!audioRef.current) return;
-          const actualDuration = audioRef.current.duration;
-          if (Number.isFinite(actualDuration) && actualDuration > 0) {
-            updateDuration(actualDuration);
-            if (isDetectingDurationRef.current) {
-              isDetectingDurationRef.current = false;
-              audioRef.current.currentTime = 0;
-              setCurrentTime(0);
-            }
+          const d = audioRef.current.duration;
+          if (Number.isFinite(d) && d > 0) {
+            updateDuration(d);
+            if (isDetectingDurationRef.current) { isDetectingDurationRef.current = false; audioRef.current.currentTime = 0; setCurrentTime(0); }
           }
         }}
-        onEnded={handleEnded}
-        preload="metadata"
+        onEnded={handleEnded} preload="metadata"
       />
 
       {title && (
-        <div className="flex items-center justify-between text-xs text-txt-muted font-medium truncate">
+        <div className="flex items-center justify-between text-xs text-white/40 font-medium truncate">
           <span className="truncate pr-2">{title}</span>
-          <span className="text-[11px] font-mono shrink-0">
+          <span className="text-[11px] font-mono shrink-0 text-white/30">
             {formatDuration(currentTime)} / {formatDuration(duration)}
           </span>
         </div>
       )}
 
-      {/* Seekbar and Controls */}
       <div className="flex items-center gap-2.5">
-        <button
-          type="button"
-          onClick={togglePlay}
-          className="w-8 h-8 rounded-full bg-navy-800 hover:bg-navy-700 text-white flex items-center justify-center shrink-0 transition-transform active:scale-95 shadow-sm"
-          aria-label={isPlaying ? 'Jeda Audio' : 'Putar Audio'}
-        >
-          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+        <button type="button" onClick={togglePlay}
+          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-95"
+          style={{ background: 'rgba(185,104,75,0.7)', boxShadow: '0 0 12px rgba(185,104,75,0.3)' }}
+          aria-label={isPlaying ? 'Jeda Audio' : 'Putar Audio'}>
+          {isPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white ml-0.5" />}
         </button>
 
-        <button
-          type="button"
-          onClick={handleRestart}
-          className="p-1.5 text-txt-muted hover:text-navy-800 rounded-md hover:bg-bg-subtle transition-colors shrink-0"
-          aria-label="Putar dari awal"
-        >
+        <button type="button" onClick={handleRestart}
+          className="p-1.5 text-white/30 hover:text-white/70 rounded-md transition-colors shrink-0"
+          aria-label="Putar dari awal">
           <RotateCcw className="w-3.5 h-3.5" />
         </button>
 
-        {/* Progress Slider */}
-        <input
-          type="range"
-          min={0}
-          max={duration || 100}
-          step={0.1}
-          value={currentTime}
-          onChange={handleSeek}
-          className="flex-1 h-1.5 bg-border rounded-lg appearance-none cursor-pointer accent-terracotta-600 hover:accent-terracotta-700 focus:outline-none"
+        <input type="range" min={0} max={duration || 100} step={0.1} value={currentTime} onChange={handleSeek}
+          className="flex-1 h-1 rounded-lg appearance-none cursor-pointer accent-terracotta-500 focus:outline-none"
+          style={{ background: `linear-gradient(to right, rgba(185,104,75,0.7) ${(currentTime / (duration || 100)) * 100}%, rgba(255,255,255,0.1) 0%)` }}
         />
 
-        {/* Mute button */}
-        <button
-          type="button"
-          onClick={toggleMute}
-          className="p-1.5 text-txt-muted hover:text-navy-800 rounded-md hover:bg-bg-subtle transition-colors shrink-0"
-          aria-label={isMuted ? 'Bunyikan' : 'Senyapkan'}
-        >
-          {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-500" /> : <Volume2 className="w-3.5 h-3.5" />}
+        <button type="button" onClick={toggleMute}
+          className="p-1.5 text-white/30 hover:text-white/70 rounded-md transition-colors shrink-0"
+          aria-label={isMuted ? 'Bunyikan' : 'Senyapkan'}>
+          {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5" />}
         </button>
       </div>
     </div>

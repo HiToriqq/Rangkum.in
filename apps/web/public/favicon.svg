@@ -1,12 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="7" fill="#172A43"/>
-  <!-- Document base with folded corner -->
-  <path d="M7 6C7 4.89543 7.89543 4 9 4H18L25 11V26C25 27.1046 24.1046 28 23 28H9C7.89543 28 7 27.1046 7 26V6Z" fill="#1E3554"/>
-  <path d="M18 4V10C18 10.5523 18.4477 11 19 11H25L18 4Z" fill="#B9684B"/>
-  
-  <!-- Soundwaves emerging as structured note lines -->
-  <line x1="11" y1="18" x2="11" y2="22" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round"/>
-  <line x1="14" y1="15" x2="14" y2="25" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round"/>
-  <line x1="17" y1="13" x2="17" y2="26" stroke="#B9684B" stroke-width="2" stroke-linecap="round"/>
-  <line x1="20" y1="16" x2="20" y2="24" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1A2744"/>
+      <stop offset="100%" stop-color="#0D1628"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#E8956A"/>
+      <stop offset="100%" stop-color="#B9684B"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="65%" r="45%">
+      <stop offset="0%" stop-color="#B9684B" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#B9684B" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="31" height="31" rx="7.5" stroke="white" stroke-opacity="0.1" stroke-width="1"/>
+  <ellipse cx="16" cy="21" rx="11" ry="7" fill="url(#glow)"/>
+  <!-- Bars -->
+  <rect x="6"  y="17" width="3" height="9"  rx="1.5" fill="white" fill-opacity="0.25"/>
+  <rect x="11" y="13" width="3" height="13" rx="1.5" fill="white" fill-opacity="0.45"/>
+  <rect x="16" y="9"  width="3.5" height="17" rx="1.75" fill="url(#bar)"/>
+  <rect x="21.5" y="12" width="3" height="14" rx="1.5" fill="white" fill-opacity="0.45"/>
+  <rect x="27" y="16" width="3" height="10" rx="1.5" fill="white" fill-opacity="0.25"/>
 </svg>

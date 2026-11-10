@@ -5,216 +5,127 @@ import { ApiRequestError, translateTranscript } from '../../lib/api';
 
 export const TranslationTab: React.FC = () => {
   const {
-    editedTranscript,
-    translations,
-    translationIsMock,
-    activeTargetLang,
-    setActiveTargetLang,
-    setTranslation,
-    isTranslating,
-    translationError,
-    setIsTranslating,
-    setTranslationError,
-    showToast,
+    editedTranscript, translations, activeTargetLang, setActiveTargetLang,
+    setTranslation, isTranslating, translationError, setIsTranslating, setTranslationError, showToast,
   } = useSessionStore();
 
   const [copied, setCopied] = useState(false);
   const [activeView, setActiveView] = useState<'translated' | 'original'>('translated');
-
   const currentTranslation = translations[activeTargetLang] || '';
 
   const handleTranslate = async () => {
     const sourceText = editedTranscript;
-    const targetLanguage = activeTargetLang;
-    if (!sourceText.trim()) {
-      showToast('Transkrip masih kosong. Buat transkrip terlebih dahulu.', 'warning');
-      return;
-    }
-
-    setIsTranslating(true);
-    setTranslationError(null);
-
+    if (!sourceText.trim()) { showToast('Transkrip masih kosong.', 'warning'); return; }
+    setIsTranslating(true); setTranslationError(null);
     try {
-      const data = await translateTranscript(sourceText, targetLanguage);
-      if (useSessionStore.getState().editedTranscript !== sourceText) {
-        return;
-      }
-
-      setTranslation(targetLanguage, data.translatedText, data.isMock);
-      if (data.isMock) {
-        showToast('Terjemahan diterima (mode simulasi).', 'warning');
-      } else {
-        showToast(`Terjemahan ke ${targetLanguage === 'id' ? 'Bahasa Indonesia' : 'English'} selesai.`, 'success');
-      }
+      const data = await translateTranscript(sourceText, activeTargetLang);
+      if (useSessionStore.getState().editedTranscript !== sourceText) return;
+      setTranslation(activeTargetLang, data.translatedText, data.isMock);
+      showToast(data.isMock ? 'Terjemahan diterima (mode simulasi).' : `Terjemahan ke ${activeTargetLang === 'id' ? 'Bahasa Indonesia' : 'English'} selesai.`, data.isMock ? 'warning' : 'success');
     } catch (err: unknown) {
-      const message = err instanceof ApiRequestError || err instanceof Error
-        ? err.message
-        : 'Terjadi kesalahan saat menghubungi layanan terjemahan.';
-      setTranslationError(message);
-      showToast(message, 'error');
-    } finally {
-      setIsTranslating(false);
-    }
+      const message = err instanceof ApiRequestError || err instanceof Error ? err.message : 'Kesalahan layanan terjemahan.';
+      setTranslationError(message); showToast(message, 'error');
+    } finally { setIsTranslating(false); }
   };
 
   const handleCopy = async () => {
-    const textToCopy = activeView === 'translated' ? currentTranslation : editedTranscript;
-    if (!textToCopy) return;
-
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-      setCopied(true);
-      showToast('Teks berhasil disalin ke clipboard.', 'success');
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      showToast('Gagal menyalin teks.', 'error');
-    }
+    const text = activeView === 'translated' ? currentTranslation : editedTranscript;
+    if (!text) return;
+    try { await navigator.clipboard.writeText(text); setCopied(true); showToast('Teks disalin.', 'success'); setTimeout(() => setCopied(false), 2000); }
+    catch { showToast('Gagal menyalin.', 'error'); }
   };
 
   if (!editedTranscript.trim()) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center text-txt-muted">
-        <div className="w-12 h-12 rounded-xl bg-bg-base border border-border flex items-center justify-center text-txt-muted mb-3">
-          <Languages className="w-6 h-6 text-terracotta-600/70" />
+      <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-3"
+          style={{ background: 'rgba(185,104,75,0.1)', border: '1px solid rgba(185,104,75,0.2)' }}>
+          <Languages className="w-6 h-6 text-terracotta-400" />
         </div>
-        <h3 className="text-sm sm:text-base font-bold text-navy-800">
-          Belum Ada Transkrip untuk Diterjemahkan
-        </h3>
-        <p className="mt-1 text-xs text-txt-muted max-w-sm">
-          Selesaikan transkripsi audio terlebih dahulu sebelum menerjemahkan antara Bahasa Indonesia dan English.
-        </p>
+        <h3 className="text-sm font-bold text-white/70">Belum Ada Transkrip untuk Diterjemahkan</h3>
+        <p className="mt-1.5 text-xs text-white/40 max-w-sm">Selesaikan transkripsi audio terlebih dahulu.</p>
       </div>
     );
   }
 
+  const btnBase = "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all";
+  const btnGhost = `${btnBase} text-white/60 hover:text-white/90`;
+
   return (
     <div className="flex flex-col gap-3">
-      {/* Controls & Options Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border">
-        {/* Language Target Switcher */}
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        {/* Language switcher */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-navy-800">Target Bahasa:</span>
-          <div className="flex rounded-lg bg-bg-subtle p-0.5 border border-border text-xs">
-            <button
-              type="button"
-              onClick={() => setActiveTargetLang('id')}
-              className={`px-3 py-1 rounded-md font-medium transition-colors ${
-                activeTargetLang === 'id'
-                  ? 'bg-bg-surface text-navy-800 shadow-sm font-semibold'
-                  : 'text-txt-muted hover:text-navy-800'
-              }`}
-            >
-              Indonesia (ID)
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTargetLang('en')}
-              className={`px-3 py-1 rounded-md font-medium transition-colors ${
-                activeTargetLang === 'en'
-                  ? 'bg-bg-surface text-navy-800 shadow-sm font-semibold'
-                  : 'text-txt-muted hover:text-navy-800'
-              }`}
-            >
-              English (EN)
-            </button>
+          <span className="text-xs font-semibold text-white/50">Target:</span>
+          <div className="flex rounded-lg p-0.5 text-xs"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            {(['id', 'en'] as const).map((lang) => (
+              <button key={lang} type="button" onClick={() => setActiveTargetLang(lang)}
+                className={`px-3 py-1 rounded-md font-semibold transition-all ${activeTargetLang === lang ? 'text-white/90' : 'text-white/35 hover:text-white/60'}`}
+                style={activeTargetLang === lang ? { background: 'rgba(255,255,255,0.09)' } : {}}>
+                {lang === 'id' ? 'Indonesia' : 'English'}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-2">
-          {/* Switch display mode between translated and original for comparison */}
+        <div className="flex items-center gap-1.5">
           {currentTranslation && (
-            <div className="flex rounded-lg bg-bg-subtle p-0.5 border border-border text-xs">
-              <button
-                type="button"
-                onClick={() => setActiveView('translated')}
-                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                  activeView === 'translated'
-                    ? 'bg-bg-surface text-navy-800 shadow-sm'
-                    : 'text-txt-muted'
-                }`}
-              >
-                Terjemahan
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveView('original')}
-                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                  activeView === 'original'
-                    ? 'bg-bg-surface text-navy-800 shadow-sm'
-                    : 'text-txt-muted'
-                }`}
-              >
-                Transkrip Asli
-              </button>
+            <div className="flex rounded-lg p-0.5 text-xs mr-1"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              {(['translated', 'original'] as const).map((v) => (
+                <button key={v} type="button" onClick={() => setActiveView(v)}
+                  className={`px-2.5 py-1 rounded-md font-medium transition-all ${activeView === v ? 'text-white/90' : 'text-white/35 hover:text-white/60'}`}
+                  style={activeView === v ? { background: 'rgba(255,255,255,0.09)' } : {}}>
+                  {v === 'translated' ? 'Terjemahan' : 'Asli'}
+                </button>
+              ))}
             </div>
           )}
-
           {currentTranslation && (
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-navy-800 hover:bg-bg-subtle border border-border transition-colors"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+            <button type="button" onClick={handleCopy}
+              className={btnGhost} style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}>
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? 'Tersalin' : 'Salin'}</span>
             </button>
           )}
-
-          <button
-            type="button"
-            onClick={handleTranslate}
-            disabled={isTranslating}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-terracotta-600 hover:bg-terracotta-700 transition-colors shadow-sm active:scale-95 disabled:opacity-60"
-          >
-            {isTranslating ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Menerjemahkan...</span>
-              </>
-            ) : (
-              <>
-                {currentTranslation ? <RotateCcw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
-                <span>{currentTranslation ? 'Terjemahkan Ulang' : 'Terjemahkan Sekarang'}</span>
-              </>
-            )}
+          <button type="button" onClick={handleTranslate} disabled={isTranslating}
+            className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60">
+            {isTranslating
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>Menerjemahkan...</span></>
+              : <>{currentTranslation ? <RotateCcw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}<span>{currentTranslation ? 'Terjemahkan Ulang' : 'Terjemahkan Sekarang'}</span></>
+            }
           </button>
         </div>
       </div>
 
-      {/* Main Body */}
       {translationError && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm" role="alert">
-          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-          <p>{translationError}</p>
+        <div className="flex items-start gap-2 p-3 rounded-xl text-xs text-red-300"
+          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }} role="alert">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-400" /><p>{translationError}</p>
         </div>
       )}
 
       {currentTranslation ? (
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between text-[11px] text-txt-muted">
-            <span>
-              {activeView === 'translated'
-                ? `Hasil Terjemahan (${activeTargetLang === 'id' ? 'Bahasa Indonesia' : 'English'}):`
-                : 'Teks Transkrip Sumber (Tidak tertimpa):'}
-            </span>
-            <span className="font-mono">
-              {(activeView === 'translated' ? currentTranslation : editedTranscript).split(/\s+/).length} kata
-            </span>
+          <div className="flex items-center justify-between text-[11px] text-white/30">
+            <span>{activeView === 'translated' ? `Hasil Terjemahan (${activeTargetLang === 'id' ? 'Bahasa Indonesia' : 'English'}):` : 'Teks Transkrip Sumber:'}</span>
+            <span className="font-mono">{(activeView === 'translated' ? currentTranslation : editedTranscript).split(/\s+/).length} kata</span>
           </div>
-
-          <div className="w-full p-4 bg-bg-surface text-xs sm:text-sm text-navy-900 leading-relaxed rounded-xl border border-border min-h-[300px] whitespace-pre-wrap font-sans shadow-sm">
+          <div className="w-full p-4 text-xs sm:text-sm text-white/75 leading-relaxed rounded-xl min-h-[300px] whitespace-pre-wrap font-sans"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
             {activeView === 'translated' ? currentTranslation : editedTranscript}
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center border-2 border-dashed border-border rounded-xl bg-bg-base/30">
-          <Globe className="w-8 h-8 text-terracotta-600 mb-2" />
-          <h4 className="text-sm font-bold text-navy-800">
-            Siap Menerjemahkan ke {activeTargetLang === 'id' ? 'Bahasa Indonesia' : 'English'}
-          </h4>
-          <p className="mt-1 text-xs text-txt-muted max-w-sm">
-            Klik tombol <strong>"Terjemahkan Sekarang"</strong> di atas. Transkrip asli Anda akan tetap utuh tanpa risiko tertimpa.
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center rounded-xl"
+          style={{ border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+          <Globe className="w-8 h-8 text-terracotta-500 mb-2" />
+          <h4 className="text-sm font-bold text-white/60">Siap Menerjemahkan ke {activeTargetLang === 'id' ? 'Bahasa Indonesia' : 'English'}</h4>
+          <p className="mt-1 text-xs text-white/35 max-w-sm">
+            Klik <strong className="text-white/50">"Terjemahkan Sekarang"</strong>. Transkrip asli tetap utuh.
           </p>
         </div>
       )}

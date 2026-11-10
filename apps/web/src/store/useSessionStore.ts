@@ -162,6 +162,63 @@ const initialQaState = {
   qaError: null,
 };
 
+const PERSIST_KEY = 'rangkumin_session_v1';
+
+type PersistedState = {
+  rawTranscript: string;
+  editedTranscript: string;
+  language: 'auto' | 'id' | 'en';
+  detectedLanguage: string | null;
+  segments: TranscriptSegment[];
+  isMock: boolean;
+  hasTranscript: boolean;
+  translations: { id?: string; en?: string };
+  translationIsMock: boolean;
+  activeTargetLang: 'id' | 'en';
+  minutesData: MinutesData | null;
+  minutesSource: 'original' | 'translation';
+  minutesLang: 'id' | 'en';
+  qaMessages: QaMessage[];
+  activeResultTab: ResultTabType;
+};
+
+function loadPersistedState(): Partial<PersistedState> {
+  try {
+    const raw = localStorage.getItem(PERSIST_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Partial<PersistedState>;
+  } catch {
+    return {};
+  }
+}
+
+function persistState(state: SessionState): void {
+  try {
+    const toSave: PersistedState = {
+      rawTranscript: state.rawTranscript,
+      editedTranscript: state.editedTranscript,
+      language: state.language,
+      detectedLanguage: state.detectedLanguage,
+      segments: state.segments,
+      isMock: state.isMock,
+      hasTranscript: state.hasTranscript,
+      translations: state.translations,
+      translationIsMock: state.translationIsMock,
+      activeTargetLang: state.activeTargetLang,
+      minutesData: state.minutesData,
+      minutesSource: state.minutesSource,
+      minutesLang: state.minutesLang,
+      qaMessages: state.qaMessages,
+      activeResultTab: state.activeResultTab,
+    };
+    localStorage.setItem(PERSIST_KEY, JSON.stringify(toSave));
+  } catch {
+    // localStorage full or unavailable — silently skip
+  }
+}
+
+const savedState = loadPersistedState();
+
 export const useSessionStore = create<SessionState>((set, get) => ({
   ...initialAudioState,
   ...initialTranscriptState,
@@ -172,6 +229,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   activeResultTab: 'transcript',
   toast: null,
   confirmModal: null,
+  // Restore persisted state (overrides defaults for serializable fields)
+  ...savedState,
 
   setActiveInputTab: (tab) => set({ activeInputTab: tab }),
   setActiveResultTab: (tab) => set({ activeResultTab: tab }),
@@ -257,6 +316,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (prevUrl && prevUrl.startsWith('blob:')) {
       URL.revokeObjectURL(prevUrl);
     }
+    localStorage.removeItem(PERSIST_KEY);
     set({
       ...initialAudioState,
       ...initialTranscriptState,
@@ -373,6 +433,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   showConfirmModal: (modal) => set({ confirmModal: modal }),
   dismissConfirmModal: () => set({ confirmModal: null }),
 }));
+
+// Auto-save serializable state to localStorage on every change
+useSessionStore.subscribe((state) => persistState(state));
 
 if (import.meta.vitest) {
   const { afterEach, describe, expect, it } = import.meta.vitest;

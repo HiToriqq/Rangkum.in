@@ -63,12 +63,12 @@ export const ApiStatus: React.FC = () => {
 
   return (
     <div
-      className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-bg-base border border-border text-xs font-medium text-txt-muted"
+      className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.05] border border-white/[0.08] text-[11px] font-medium text-txt-muted"
       role="status"
       aria-live="polite"
       title={status === 'connected' ? `STT: ${health?.providers.stt ?? '-'} · LLM: ${health?.providers.llm ?? '-'}` : undefined}
     >
-      <span className={`w-2 h-2 rounded-full ${dotColor}`} />
+      <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
       {label}
     </div>
   );
