@@ -24,9 +24,14 @@ export async function postTranscribe(req: Request, res: Response, next: NextFunc
       const service = getTranscribeService();
       const downloadedPath = await downloadSafeAudioUrl(parsed.url);
 
+      const prompt =
+        parsed.language === 'en'
+          ? 'Formal meeting conversation, clear transcription of discussion and action items.'
+          : 'Transkripsi percakapan dan rapat dalam Bahasa Indonesia secara akurat dan lengkap.';
+
       const result = await service.processAudio(
         downloadedPath,
-        { language: parsed.language },
+        { language: parsed.language, prompt },
         true // delete downloaded file afterwards
       );
 
@@ -43,9 +48,14 @@ export async function postTranscribe(req: Request, res: Response, next: NextFunc
     const service = getTranscribeService();
     const language = (req.body.language as 'auto' | 'id' | 'en') || 'auto';
 
+    const prompt =
+      language === 'en'
+        ? 'Formal meeting conversation, clear transcription of discussion and action items.'
+        : 'Transkripsi percakapan dan rapat dalam Bahasa Indonesia secara akurat dan lengkap.';
+
     const result = await service.processAudio(
       req.file.path,
-      { language },
+      { language, prompt },
       true // clean up multer temp file afterwards
     );
 

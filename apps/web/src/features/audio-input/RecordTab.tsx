@@ -105,7 +105,7 @@ export const RecordTab: React.FC = () => {
       const mimeType = getSupportedMimeType();
 
       const options: MediaRecorderOptions = {
-        audioBitsPerSecond: 48000, // 48 kbps voice optimized
+        audioBitsPerSecond: 96000, // 96 kbps for crisp voice capture, preserving soft phonemes and fast speech
       };
       if (mimeType) {
         options.mimeType = mimeType;
