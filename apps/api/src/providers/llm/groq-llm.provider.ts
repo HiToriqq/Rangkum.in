@@ -1,40 +1,66 @@
 import type { LlmProvider } from './llm.provider.js';
 import type { MinutesData, ChatMessage, QaResponse } from '../../types/index.js';
 import { MinutesSchema } from '../../types/index.js';
+import { LlmProviderUnavailableError } from './llm-provider-error.js';
 
 export class GroqLlmProvider implements LlmProvider {
   name = 'Groq LLM';
   isMock = false;
   private apiKey: string;
   private model: string;
+  private fallbackModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'];
 
-  constructor(apiKey: string, model = 'llama-3.3-70b-versatile') {
+  constructor(apiKey: string, model = 'openai/gpt-oss-120b') {
     this.apiKey = apiKey;
     this.model = model;
   }
 
   private async callChat(messages: { role: string; content: string }[], jsonMode = false): Promise<string> {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        temperature: 0.1,
-        response_format: jsonMode ? { type: 'json_object' } : undefined,
-      }),
-    });
+    const candidateModels = Array.from(new Set([this.model, ...this.fallbackModels]));
+    let lastError: Error | null = null;
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => 'Unknown error');
-      throw new Error(`Groq LLM API error (${response.status}): ${errText}`);
+    for (const currentModel of candidateModels) {
+      try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: currentModel,
+            messages,
+            temperature: 0.1,
+            response_format: jsonMode ? { type: 'json_object' } : undefined,
+          }),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text().catch(() => 'Unknown error');
+          if (response.status === 404 || errText.includes('model_not_found')) {
+            lastError = new LlmProviderUnavailableError(
+              `Model ${currentModel} tidak ditemukan di Groq (${response.status}): ${errText}`
+            );
+            continue;
+          }
+          throw new LlmProviderUnavailableError(`Groq LLM API error (${response.status}): ${errText}`);
+        }
+
+        const data = (await response.json()) as any;
+        return data.choices?.[0]?.message?.content || '';
+      } catch (err: any) {
+        lastError =
+          err instanceof LlmProviderUnavailableError
+            ? err
+            : new LlmProviderUnavailableError(err.message || 'Groq API failure');
+        if (err.message?.includes('model_not_found') || err.message?.includes('404')) {
+          continue;
+        }
+        throw lastError;
+      }
     }
 
-    const data = (await response.json()) as any;
-    return data.choices?.[0]?.message?.content || '';
+    throw lastError || new LlmProviderUnavailableError('Gagal memanggil Groq LLM API pada semua model yang dicoba.');
   }
 
   async translate(text: string, targetLanguage: 'id' | 'en'): Promise<string> {
@@ -91,7 +117,8 @@ Rules:
 
     const rawJson = await this.callChat(messages, true);
     try {
-      const parsed = JSON.parse(rawJson);
+      const cleaned = rawJson.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleaned);
       return MinutesSchema.parse(parsed);
     } catch {
       throw new Error('Hasil notulen dari AI tidak memenuhi skema data yang valid.');

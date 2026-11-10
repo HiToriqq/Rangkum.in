@@ -18,6 +18,7 @@ const envSchema = z.object({
   
   // Provider API Keys
   GROQ_API_KEY: z.string().optional(),
+  GROQ_LLM_MODEL: z.string().default('openai/gpt-oss-120b'),
   OPENAI_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
 

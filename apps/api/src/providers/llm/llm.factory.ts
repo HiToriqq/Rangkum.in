@@ -5,13 +5,15 @@ import { GroqLlmProvider } from './groq-llm.provider.js';
 import { OpenAiLlmProvider } from './openai-llm.provider.js';
 import { LlmProviderConfigurationError } from './llm-provider-error.js';
 
-type LlmProviderConfig = Pick<typeof env, 'LLM_PROVIDER' | 'GROQ_API_KEY' | 'OPENAI_API_KEY'>;
+type LlmProviderConfig = Pick<typeof env, 'LLM_PROVIDER' | 'GROQ_API_KEY' | 'OPENAI_API_KEY'> & {
+  GROQ_LLM_MODEL?: string;
+};
 
 export function createLlmProvider(config: LlmProviderConfig = env): LlmProvider {
   if (config.LLM_PROVIDER === 'groq') {
     const apiKey = config.GROQ_API_KEY?.trim();
     if (!apiKey) throw new LlmProviderConfigurationError('Groq LLM');
-    return new GroqLlmProvider(apiKey);
+    return new GroqLlmProvider(apiKey, config.GROQ_LLM_MODEL);
   }
 
   if (config.LLM_PROVIDER === 'openai') {
