@@ -27,7 +27,7 @@ export async function postTranscribe(req: Request, res: Response, next: NextFunc
       const prompt =
         parsed.language === 'en'
           ? 'Formal meeting conversation, clear transcription of discussion and action items.'
-          : 'Transkripsi percakapan dan rapat dalam Bahasa Indonesia secara akurat dan lengkap.';
+          : 'Transkripsi percakapan rapat, perkenalan diri, nama pembicara, program studi, kampus, dan diskusi dalam Bahasa Indonesia secara akurat.';
 
       const result = await service.processAudio(
         downloadedPath,
@@ -51,7 +51,7 @@ export async function postTranscribe(req: Request, res: Response, next: NextFunc
     const prompt =
       language === 'en'
         ? 'Formal meeting conversation, clear transcription of discussion and action items.'
-        : 'Transkripsi percakapan dan rapat dalam Bahasa Indonesia secara akurat dan lengkap.';
+        : 'Transkripsi percakapan rapat, perkenalan diri, nama pembicara, program studi, kampus, dan diskusi dalam Bahasa Indonesia secara akurat.';
 
     const result = await service.processAudio(
       req.file.path,

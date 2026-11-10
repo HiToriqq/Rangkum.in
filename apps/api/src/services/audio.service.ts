@@ -74,12 +74,12 @@ export async function normalizeAudioWithFfmpeg(
   const outputPath = path.join(destFolder, `norm_${Date.now()}_${randomSuffix}.wav`);
 
   return new Promise((resolve, reject) => {
-    // ffmpeg -y -i <input> -vn -af highpass=f=80,dynaudnorm=p=0.95:m=10:s=5 -acodec pcm_s16le -ac 1 -ar 16000 <output>
+    // ffmpeg -y -i <input> -vn -af highpass=f=80,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=16000 -acodec pcm_s16le -ac 1 -ar 16000 <output>
     const args = [
       '-y',
       '-i', inputPath,
       '-vn',
-      '-af', 'highpass=f=80,dynaudnorm=p=0.95:m=10:s=5',
+      '-af', 'highpass=f=80,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=16000',
       '-acodec', 'pcm_s16le',
       '-ac', '1',
       '-ar', '16000',
